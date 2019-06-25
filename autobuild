@@ -1,0 +1,4 @@
+cd ./build/
+cmake ../
+make 
+cp ./hbrs/3532 /nfs
