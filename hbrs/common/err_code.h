@@ -19,7 +19,7 @@ class RSErrorCategory : public std::error_category
     {
         return "rs";
     }
-    std::string message(int i) const override
+    std::string message(int32_t i) const override
     {
         switch (static_cast<err_code>(i))
         {
@@ -61,5 +61,5 @@ static RSErrorCategory rs_error_category;
 inline std::error_code
 make_error_code(err_code code) noexcept
 {
-    return {static_cast<int>(code), rs_error_category};
+    return {static_cast<int32_t>(code), rs_error_category};
 }

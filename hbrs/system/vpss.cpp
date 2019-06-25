@@ -14,12 +14,12 @@ VideoProcess::~VideoProcess()
 {
 }
 
-int VideoProcess::Initialize(const Params &params)
+int32_t VideoProcess::Initialize(const Params &params)
 {
     if (init_)
         return KInitialized;
 
-    int ret;
+    int32_t ret;
 
     params_ = params;
 
@@ -42,7 +42,7 @@ int VideoProcess::Initialize(const Params &params)
         return KSDKError;
     }
 
-    for (int i = 0; i < VPSS_MAX_CHN_NUM; i++)
+    for (int32_t i = 0; i < VPSS_MAX_CHN_NUM; i++)
     {
         ret = HI_MPI_VPSS_EnableChn(params_.grp, i);
         if (ret != KSuccess)
@@ -64,9 +64,9 @@ int VideoProcess::Initialize(const Params &params)
     return KSuccess;
 }
 
-int VideoProcess::SetChnMode(int grp, int chn, const SIZE_S &size)
+int32_t VideoProcess::SetChnMode(int32_t grp, int32_t chn, const SIZE_S &size)
 {
-    int ret;
+    int32_t ret;
     VPSS_CHN_MODE_S mode;
     memset(&mode, 0, sizeof(mode));
     mode.enChnMode = VPSS_CHN_MODE_USER;
@@ -83,12 +83,12 @@ int VideoProcess::SetChnMode(int grp, int chn, const SIZE_S &size)
     return KSuccess;
 }
 
-int VideoProcess::SetChnSize(int chn, const SIZE_S &size)
+int32_t VideoProcess::SetChnSize(int32_t chn, const SIZE_S &size)
 {
     if (!init_)
         return KUnInitialized;
 
-    int ret;
+    int32_t ret;
     ret = SetChnMode(params_.grp, chn, size);
     if (ret != KSuccess)
         return ret;

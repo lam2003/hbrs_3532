@@ -16,12 +16,12 @@ VideoOutput::~VideoOutput()
 {
 }
 
-int VideoOutput::Initialize(const Params &params)
+int32_t VideoOutput::Initialize(const Params &params)
 {
     if (init_)
         return KInitialized;
 
-    int ret;
+    int32_t ret;
 
     params_ = params;
 
@@ -41,9 +41,9 @@ int VideoOutput::Initialize(const Params &params)
     return KSuccess;
 }
 
-int VideoOutput::StartHDMI(int dev, int intf_sync)
+int32_t VideoOutput::StartHDMI(int32_t dev, int32_t intf_sync)
 {
-    int ret;
+    int32_t ret;
 
     HI_HDMI_INIT_PARA_S param;
     HI_HDMI_ATTR_S attr;
@@ -110,11 +110,11 @@ int VideoOutput::StartHDMI(int dev, int intf_sync)
     return KSuccess;
 }
 
-int VideoOutput::StartDevLayer(int dev, int intf_type, int intf_sync)
+int32_t VideoOutput::StartDevLayer(int32_t dev, int32_t intf_type, int32_t intf_sync)
 {
     log_d("vo[%d] intf_type:%d intf_sync:%d", dev, intf_type, intf_sync);
 
-    int ret;
+    int32_t ret;
 
     VO_PUB_ATTR_S pub_attr;
     memset(&pub_attr, 0, sizeof(pub_attr));
@@ -165,12 +165,12 @@ int VideoOutput::StartDevLayer(int dev, int intf_type, int intf_sync)
     return KSuccess;
 }
 
-int VideoOutput::StartChn(const Channel &chn)
+int32_t VideoOutput::StartChn(const Channel &chn)
 {
     if (!init_)
         return KUnInitialized;
 
-    int ret;
+    int32_t ret;
 
     VO_CHN_ATTR_S attr;
     memset(&attr, 0, sizeof(attr));

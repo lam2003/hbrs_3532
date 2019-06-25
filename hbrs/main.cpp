@@ -15,9 +15,9 @@
 
 static bool g_Run = true;
 
-int main(int argc, char **argv)
+int32_t main(int32_t argc, char **argv)
 {
-	int ret;
+	int32_t ret;
 	//全局设置为1080P(支持的最大分辨率),不用改变
 	rs::MPPSystem::Instance()->Initialize({CAPTURE_MODE_1080P, 10});
 

@@ -10,7 +10,7 @@ namespace vpss
 {
 struct Params
 {
-    int grp;
+    int32_t grp;
     CaptureMode mode;
 };
 
@@ -24,14 +24,14 @@ public:
 
     virtual ~VideoProcess();
 
-    int Initialize(const vpss::Params &params) override;
+    int32_t Initialize(const vpss::Params &params) override;
 
     void Close() override;
 
-    int SetChnSize(int chn,const SIZE_S &size);
+    int32_t SetChnSize(int32_t chn,const SIZE_S &size);
 
 protected:
-    static int SetChnMode(int grp, int chn, const SIZE_S &size);
+    static int32_t SetChnMode(int32_t grp, int32_t chn, const SIZE_S &size);
 
 private:
     vpss::Params params_;

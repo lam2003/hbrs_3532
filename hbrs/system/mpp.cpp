@@ -23,12 +23,12 @@ MPPSystem *MPPSystem::Instance()
     return instance;
 }
 
-int MPPSystem::Initialize(const Params &params)
+int32_t MPPSystem::Initialize(const Params &params)
 {
     if (init_)
         return KInitialized;
 
-    int ret;
+    int32_t ret;
 
     params_ = params;
 
@@ -55,9 +55,9 @@ int MPPSystem::Initialize(const Params &params)
     return KSuccess;
 }
 
-int MPPSystem::ConfigSys(int align_width)
+int32_t MPPSystem::ConfigSys(int32_t align_width)
 {
-    int ret;
+    int32_t ret;
 
     MPP_SYS_CONF_S conf;
     memset(&conf, 0, sizeof(MPP_SYS_CONF_S));
@@ -79,9 +79,9 @@ int MPPSystem::ConfigSys(int align_width)
     return KSuccess;
 }
 
-int MPPSystem::ConfigVB(CaptureMode mode, int block_num)
+int32_t MPPSystem::ConfigVB(CaptureMode mode, int32_t block_num)
 {
-    int ret;
+    int32_t ret;
 
     SIZE_S size = Utils::GetSize(mode);
     uint32_t blk_size = (CEILING_2_POWER(size.u32Width, RS_ALIGN_WIDTH) * CEILING_2_POWER(size.u32Height, RS_ALIGN_WIDTH) * 3) >> 1;
@@ -97,8 +97,8 @@ int MPPSystem::ConfigVB(CaptureMode mode, int block_num)
     conf.astCommPool[1].u32BlkCnt = block_num;
     strcpy(conf.astCommPool[1].acMmzName, "ddr1");
 
-    conf.astCommPool[2].u32BlkSize = PCIV_WINDOW_SIZE / 2;
-    conf.astCommPool[2].u32BlkCnt = 1;
+    // conf.astCommPool[2].u32BlkSize = PCIV_WINDOW_SIZE / 2;
+    // conf.astCommPool[2].u32BlkCnt = 1;
 
     ret = HI_MPI_VB_SetConf(&conf);
     if (ret != KSuccess)
@@ -132,9 +132,9 @@ void MPPSystem::ConfigLogger()
     elog_start();
 }
 
-int MPPSystem::ConfigMem()
+int32_t MPPSystem::ConfigMem()
 {
-    int ret;
+    int32_t ret;
 
     {
         //VI CHN 4
@@ -176,7 +176,7 @@ int MPPSystem::ConfigMem()
         }
     }
 
-    for (int i = 0; i < 8; i++)
+    for (int32_t i = 0; i < 8; i++)
     {
         {
             //VENC

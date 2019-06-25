@@ -45,7 +45,7 @@ VideoInput::VideoInput() : init_(false)
 {
 }
 
-void VideoInput::SetMask(int dev, VI_DEV_ATTR_S &dev_attr)
+void VideoInput::SetMask(int32_t dev, VI_DEV_ATTR_S &dev_attr)
 {
     switch (dev % 4)
     {
@@ -70,9 +70,9 @@ void VideoInput::SetMask(int dev, VI_DEV_ATTR_S &dev_attr)
     }
 }
 
-int VideoInput::StartDev(int dev, CaptureMode mode)
+int32_t VideoInput::StartDev(int32_t dev, CaptureMode mode)
 {
-    int ret;
+    int32_t ret;
     VI_DEV_ATTR_S dev_attr;
 
     memset(&dev_attr, 0, sizeof(dev_attr));
@@ -108,9 +108,9 @@ int VideoInput::StartDev(int dev, CaptureMode mode)
     return KSuccess;
 }
 
-int VideoInput::StartChn(int chn, CaptureMode mode)
+int32_t VideoInput::StartChn(int32_t chn, CaptureMode mode)
 {
-    int ret;
+    int32_t ret;
 
     RECT_S rect;
     SIZE_S size = Utils::GetSize(mode);
@@ -149,12 +149,12 @@ int VideoInput::StartChn(int chn, CaptureMode mode)
     return KSuccess;
 }
 
-int VideoInput::Initialize(const Params &params)
+int32_t VideoInput::Initialize(const Params &params)
 {
     if (init_)
         return KInitialized;
 
-    int ret;
+    int32_t ret;
 
     params_ = params;
 

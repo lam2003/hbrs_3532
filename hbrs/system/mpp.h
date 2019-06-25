@@ -13,7 +13,7 @@ namespace mpp
 struct Params
 {
     CaptureMode mode;
-    int block_num;
+    int32_t block_num;
 };
 } // namespace mpp
 
@@ -24,13 +24,13 @@ public:
 
     virtual ~MPPSystem();
 
-    int Initialize(const mpp::Params &params) override;
+    int32_t Initialize(const mpp::Params &params) override;
 
     void Close() override;
 
-    static int Bind(MPP_CHN_S *src_chn, MPP_CHN_S *dst_chn)
+    static int32_t Bind(MPP_CHN_S *src_chn, MPP_CHN_S *dst_chn)
     {
-        int ret;
+        int32_t ret;
         ret = HI_MPI_SYS_Bind(src_chn, dst_chn);
         if (ret != KSuccess)
         {
@@ -40,9 +40,9 @@ public:
         return KSuccess;
     }
 
-    static int UnBind(MPP_CHN_S *src_chn, MPP_CHN_S *dst_chn)
+    static int32_t UnBind(MPP_CHN_S *src_chn, MPP_CHN_S *dst_chn)
     {
-        int ret;
+        int32_t ret;
         ret = HI_MPI_SYS_UnBind(src_chn, dst_chn);
         if (ret != KSuccess)
         {
@@ -53,9 +53,9 @@ public:
     }
 
     template <MOD_ID_E SRC, MOD_ID_E DST>
-    static int Bind(int sdev, int schn, int ddev, int dchn)
+    static int32_t Bind(int32_t sdev, int32_t schn, int32_t ddev, int32_t dchn)
     {
-        int ret;
+        int32_t ret;
         MPP_CHN_S src_chn, dst_chn;
         src_chn.s32DevId = sdev;
         src_chn.s32ChnId = schn;
@@ -70,9 +70,9 @@ public:
     }
 
     template <MOD_ID_E SRC, MOD_ID_E DST>
-    static int UnBind(int sdev, int schn, int ddev, int dchn)
+    static int32_t UnBind(int32_t sdev, int32_t schn, int32_t ddev, int32_t dchn)
     {
-        int ret;
+        int32_t ret;
         MPP_CHN_S src_chn, dst_chn;
         src_chn.s32DevId = sdev;
         src_chn.s32ChnId = schn;
@@ -87,13 +87,13 @@ public:
     }
 
 protected:
-    static int ConfigVB(CaptureMode mode, int block_num);
+    static int32_t ConfigVB(CaptureMode mode, int32_t block_num);
 
-    static int ConfigSys(int align_width);
+    static int32_t ConfigSys(int32_t align_width);
 
     static void ConfigLogger();
 
-    static int ConfigMem();
+    static int32_t ConfigMem();
 
 private:
     explicit MPPSystem();

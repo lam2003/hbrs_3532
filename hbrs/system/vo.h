@@ -11,16 +11,16 @@ namespace vo
 {
 struct Params
 {
-    int dev;
-    int intf_type;
-    int intf_sync;
+    int32_t dev;
+    int32_t intf_type;
+    int32_t intf_sync;
 };
 
 struct Channel
 {
     RECT_S rect;
-    int no;
-    int level;
+    int32_t no;
+    int32_t level;
 };
 } // namespace vo
 
@@ -31,18 +31,18 @@ public:
 
     virtual ~VideoOutput();
 
-    int Initialize(const vo::Params &params) override;
+    int32_t Initialize(const vo::Params &params) override;
 
     void Close() override;
 
-    int StartChn(const vo::Channel &chn);
+    int32_t StartChn(const vo::Channel &chn);
 
-    int StopChn(int chn);
+    int32_t StopChn(int32_t chn);
 
 protected:
-    static int StartHDMI(int dev, int intf_sync);
+    static int32_t StartHDMI(int32_t dev, int32_t intf_sync);
 
-    static int StartDevLayer(int dev, int intf_type, int intf_sync);
+    static int32_t StartDevLayer(int32_t dev, int32_t intf_type, int32_t intf_sync);
 
 private:
     vo::Params params_;

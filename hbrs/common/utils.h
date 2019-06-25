@@ -135,9 +135,9 @@ public:
         return size;
     }
 
-    static int GetFrameRate(VO_INTF_SYNC_E intf_sync)
+    static int32_t GetFrameRate(VO_INTF_SYNC_E intf_sync)
     {
-        int frame_rate;
+        int32_t frame_rate;
 
         switch (intf_sync)
         {

@@ -10,8 +10,8 @@ namespace vi
 {
 struct Params
 {
-    int dev;
-    int chn;
+    int32_t dev;
+    int32_t chn;
     CaptureMode mode;
 };
 
@@ -24,16 +24,16 @@ public:
 
     virtual ~VideoInput();
 
-    int Initialize(const vi::Params &params) override;
+    int32_t Initialize(const vi::Params &params) override;
 
     void Close() override;
 
 protected:
-    static int StartDev(int dev, CaptureMode mode);
+    static int32_t StartDev(int32_t dev, CaptureMode mode);
 
-    static void SetMask(int dev, VI_DEV_ATTR_S &dev_attr);
+    static void SetMask(int32_t dev, VI_DEV_ATTR_S &dev_attr);
 
-    static int StartChn(int chn, CaptureMode mode);
+    static int32_t StartChn(int32_t chn, CaptureMode mode);
 
 private:
     vi::Params params_;
