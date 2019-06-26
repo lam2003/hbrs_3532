@@ -1,15 +1,25 @@
 #include "system/pciv_trans.h"
+#include "common/buffer.h"
+
+#include <map>
 
 namespace rs
 {
 
 using namespace pciv;
 
+static std::map<int, int> Slave1_VencChn2VdecChn = {
+    {0, 3}};
+static std::map<int, int> Slave3_VencChn2VdecChn = {
+    {0, 0},
+    {1, 1},
+    {2, 2}};
+
 PCIVTrans::~PCIVTrans()
 {
 }
 
-PCIVTrans::PCIVTrans()
+PCIVTrans::PCIVTrans() : init_(false)
 {
 }
 
@@ -19,50 +29,169 @@ PCIVTrans *PCIVTrans::Instance()
     return instance;
 }
 
+static bool Recv(pciv::Context *ctx, int remote_id, uint8_t *tmp_buf, int32_t buf_len, rs::Buffer<allocator_1k> &msg_buf, const std::atomic<bool> &run, Msg &msg)
+{
+    int ret;
+    do
+    {
+        ret = ctx->Recv(remote_id, ctx->GetTransWritePort(), tmp_buf, buf_len);
+        if (ret > 0)
+        {
+            if (!msg_buf.Append(tmp_buf, ret))
+            {
+                log_e("append data to msg_buf failed");
+                log_e("error:%s", make_error_code(static_cast<err_code>(KNotEnoughBuf)).message().c_str());
+                return false;
+            }
+        }
+        else
+        {
+            usleep(10000); //10ms
+        }
+
+    } while (run && msg_buf.Size() < sizeof(msg));
+
+    if (msg_buf.Size() >= sizeof(msg))
+    {
+        msg_buf.Get(reinterpret_cast<uint8_t *>(&msg), sizeof(msg));
+        msg_buf.Consume(sizeof(msg));
+        return true;
+    }
+
+    return false;
+}
+
 int32_t PCIVTrans::Initialize(Context *ctx, const MemoryInfo &mem_info)
 {
     if (init_)
         return KInitialized;
 
     mem_info_ = mem_info;
+    ctx_ = ctx;
+
     pos_info_.start_pos = 0;
     pos_info_.end_pos = 0;
-    ctx_ = ctx;
+
+    buf_.blk = HI_MPI_VB_GetBlock(VB_INVALID_POOLID, PCIV_WINDOW_SIZE / 2, nullptr);
+    if (buf_.blk == VB_INVALID_HANDLE)
+    {
+        log_e("HI_MPI_VB_GetBlock failed");
+        return KSDKError;
+    }
+
+    buf_.phy_addr = HI_MPI_VB_Handle2PhysAddr(buf_.blk);
+    if (buf_.phy_addr == 0)
+    {
+        log_e("HI_MPI_VB_Handle2PhysAddr failed");
+        return KSDKError;
+    }
+
+    buf_.vir_addr = reinterpret_cast<uint8_t *>(HI_MPI_SYS_Mmap(buf_.phy_addr,
+                                                                PCIV_WINDOW_SIZE / 2));
+    if (buf_.vir_addr == nullptr)
+    {
+        log_e("HI_MPI_SYS_Mmap failed");
+        return KSDKError;
+    }
+
+    buf_.len = 0;
+
+    run_ = true;
+    trans_thread_ = std::unique_ptr<std::thread>(new std::thread([this]() {
+        int ret;
+        while (run_)
+        {
+            usleep(10000); //10ms
+            std::unique_lock<std::mutex> lock(mux_);
+            if (buf_.len > 0)
+            {
+                ret = TransportData();
+                if (ret != KSuccess)
+                {
+                    log_e("error:%s", make_error_code(static_cast<err_code>(ret)).message().c_str());
+                    if (ret == KNotEnoughBuf)
+                        continue;
+                    return;
+                }
+            }
+        }
+    }));
+    recv_msg_thread_ = std::unique_ptr<std::thread>(new std::thread([this]() {
+        rs::pciv::Msg msg;
+        uint8_t tmp_buf[1024];
+        rs::Buffer<rs::allocator_1k> msg_buf;
+        while (run_)
+        {
+            if (Recv(ctx_, PCIV_MASTER_ID, tmp_buf, sizeof(tmp_buf), msg_buf, run_, msg))
+            {
+                if (msg.type == Msg::Type::READ_DONE)
+                {
+                    PosInfo *tmp = reinterpret_cast<PosInfo *>(msg.data);
+                    std::unique_lock<std::mutex> lock(mux_);
+                    pos_info_.start_pos = tmp->end_pos;
+                }
+                else
+                {
+                    log_e("unknow msg type %d", msg.type);
+                    continue;
+                }
+            }
+        }
+    }));
+
+    init_ = true;
 
     return KSuccess;
 }
 
-int32_t PCIVTrans::QueryWritePos(PosInfo &pos_info, int32_t len)
+void PCIVTrans::Close()
 {
-    if (pos_info.end_pos >= pos_info.start_pos)
+    if (!init_)
+        return;
+
+    run_ = false;
+    trans_thread_->join();
+    trans_thread_.reset();
+    trans_thread_ = nullptr;
+
+    recv_msg_thread_->join();
+    recv_msg_thread_.reset();
+    recv_msg_thread_ = nullptr;
+
+    HI_MPI_SYS_Munmap(buf_.vir_addr, PCIV_WINDOW_SIZE / 2);
+    HI_MPI_VB_ReleaseBlock(buf_.blk);
+
+    init_ = false;
+}
+
+int32_t PCIVTrans::QueryWritePos()
+{
+    if (pos_info_.end_pos >= pos_info_.start_pos)
     {
-        if ((pos_info.end_pos + len) <= PCIV_WINDOW_SIZE)
-            return pos_info.end_pos;
-        else if (len < pos_info.start_pos)
+        if ((pos_info_.end_pos + buf_.len) <= PCIV_WINDOW_SIZE)
+            return pos_info_.end_pos;
+        else if (buf_.len < pos_info_.start_pos)
             return 0;
     }
     else
     {
-        if ((pos_info.end_pos + len) < pos_info.start_pos)
-            return pos_info.end_pos;
+        if ((pos_info_.end_pos + buf_.len) < pos_info_.start_pos)
+            return pos_info_.end_pos;
     }
     return -1;
 }
 
-int32_t PCIVTrans::TransportData(uint32_t local_phy_addr, int32_t len)
+int32_t PCIVTrans::TransportData()
 {
-    if (!init_)
-        return KUnInitialized;
-
     int32_t ret;
 
-    int32_t write_pos = QueryWritePos(pos_info_, len);
+    int32_t write_pos = QueryWritePos();
     if (write_pos == -1)
         return KNotEnoughBuf;
 
     PCIV_DMA_BLOCK_S dma_blks[PCIV_MAX_DMABLK];
-    dma_blks[0].u32BlkSize = len;
-    dma_blks[0].u32SrcAddr = local_phy_addr;
+    dma_blks[0].u32BlkSize = buf_.len;
+    dma_blks[0].u32SrcAddr = buf_.phy_addr;
     dma_blks[0].u32DstAddr = mem_info_.phy_addr + write_pos;
 
     PCIV_DMA_TASK_S dma_ask;
@@ -73,7 +202,6 @@ int32_t PCIVTrans::TransportData(uint32_t local_phy_addr, int32_t len)
     ret = HI_MPI_PCIV_DmaTask(&dma_ask);
     while (ret == HI_ERR_PCIV_BUSY)
     {
-        usleep(10000); //10ms
         ret = HI_MPI_PCIV_DmaTask(&dma_ask);
     }
     if (ret != KSuccess)
@@ -82,16 +210,74 @@ int32_t PCIVTrans::TransportData(uint32_t local_phy_addr, int32_t len)
         return KSDKError;
     }
 
-    pos_info_.end_pos = write_pos + len;
+    pos_info_.end_pos = write_pos + buf_.len;
+
+    PosInfo tmp;
+    tmp.start_pos = write_pos;
+    tmp.end_pos = write_pos + buf_.len;
 
     Msg msg;
     msg.type = Msg::Type::WRITE_DONE;
-    memcpy(msg.data, &pos_info_, sizeof(pos_info_));
+    memcpy(msg.data, &tmp, sizeof(tmp));
+
     ret = ctx_->Send(PCIV_MASTER_ID, ctx_->GetTransReadPort(), reinterpret_cast<uint8_t *>(&msg), sizeof(msg));
     if (ret != KSuccess)
         return ret;
 
-    return KSuccess;
+    buf_.len = 0;
+
+    return ret;
 }
 
+void PCIVTrans::OnFrame(const VENC_STREAM_S &st, int chn)
+{
+    if (!init_)
+        return;
+    StreamInfo st_info;
+
+    int32_t len = 0;
+    for (uint32_t i = 0; i < st.u32PackCount; i++)
+    {
+        len += st.pstPack[i].u32Len[0];
+        len += st.pstPack[i].u32Len[1];
+    }
+
+    int32_t align_len = (len % 4 == 0 ? len : (len + (4 - len % 4)));
+
+    std::unique_lock<std::mutex> lock(mux_);
+    uint32_t free_len = (PCIV_WINDOW_SIZE / 2) - buf_.len;
+    if (free_len < sizeof(StreamInfo) + align_len)
+    {
+        log_e("pciv local buffer free size less than data size");
+        log_e("error:%s", make_error_code(static_cast<err_code>(KNotEnoughBuf)).message().c_str());
+        return;
+    }
+
+    st_info.align_len = align_len;
+    st_info.len = len;
+    st_info.pts = st.pstPack[0].u64PTS;
+#if CHIP_TYPE == 1
+    st_info.vdec_chn = Slave1_VencChn2VdecChn[chn];
+#elif CHIP_TYPE == 3
+    st_info.vdec_chn = Slave3_VencChn2VdecChn[chn];
+#endif
+    memcpy(buf_.vir_addr + buf_.len, &st_info, sizeof(st_info));
+    buf_.len += sizeof(st_info);
+
+    for (uint32_t i = 0; i < st.u32PackCount; i++)
+    {
+        memcpy(buf_.vir_addr + buf_.len,
+               st.pstPack[i].pu8Addr[0],
+               st.pstPack[i].u32Len[0]);
+
+        buf_.len += st.pstPack[i].u32Len[0];
+
+        memcpy(buf_.vir_addr + buf_.len,
+               st.pstPack[i].pu8Addr[1],
+               st.pstPack[i].u32Len[1]);
+        buf_.len += st.pstPack[i].u32Len[1];
+    }
+
+    buf_.len += (align_len - len);
+}
 }; // namespace rs

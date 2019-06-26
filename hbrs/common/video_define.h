@@ -13,7 +13,8 @@ class VideoSink
 {
 public:
     virtual ~VideoSink() {}
-    void OnFrame(const FrameT &);
+    virtual void OnFrame(const FrameT &) {}
+    virtual void OnFrame(const FrameT &, int32_t chn) {}
 };
 } // namespace rs
 

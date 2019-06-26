@@ -97,8 +97,8 @@ int32_t MPPSystem::ConfigVB(CaptureMode mode, int32_t block_num)
     conf.astCommPool[1].u32BlkCnt = block_num;
     strcpy(conf.astCommPool[1].acMmzName, "ddr1");
 
-    // conf.astCommPool[2].u32BlkSize = PCIV_WINDOW_SIZE / 2;
-    // conf.astCommPool[2].u32BlkCnt = 1;
+    conf.astCommPool[2].u32BlkSize = PCIV_WINDOW_SIZE / 2;
+    conf.astCommPool[2].u32BlkCnt = 1;
 
     ret = HI_MPI_VB_SetConf(&conf);
     if (ret != KSuccess)

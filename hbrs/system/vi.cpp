@@ -34,7 +34,7 @@ const VI_DEV_ATTR_S VideoInput::DevAttr_7441_BT1120_1080P = {
      VI_HSYNC_NEG_HIGH,
      VI_VSYNC_NORM_PULSE,
      VI_VSYNC_VALID_NEG_HIGH,
-     {0, 1280, 0, 0, 1024, 0, 0, 0, 0}}};
+     {0, 1920, 0, 0, 1080, 0, 0, 0, 0}}};
 
 VideoInput::~VideoInput()
 {
@@ -116,13 +116,13 @@ int32_t VideoInput::StartChn(int32_t chn, CaptureMode mode)
     SIZE_S size = Utils::GetSize(mode);
     rect.s32X = 0;
     rect.s32Y = 0;
-    rect.u32Width = 1280;  //size.u32Width;
-    rect.u32Height = 1024; //size.u32Height;
+    rect.u32Width = size.u32Width;
+    rect.u32Height = size.u32Height;
 
     VI_CHN_ATTR_S attr;
     attr.enCapSel = VI_CAPSEL_BOTH;
-    attr.stDestSize.u32Width = 1280;  //size.u32Width;
-    attr.stDestSize.u32Height = 1024; //size.u32Height;
+    attr.stDestSize.u32Width = size.u32Width;
+    attr.stDestSize.u32Height = size.u32Height;
     attr.enPixFormat = RS_PIXEL_FORMAT;
     attr.bMirror = HI_FALSE;
     attr.bFlip = HI_FALSE;

@@ -1,9 +1,6 @@
 #pragma once
 
 #include <vector>
-#include <map>
-
-#include <json/json.h>
 
 #include "common/global.h"
 
@@ -16,7 +13,8 @@ struct Msg
 {
     enum Type
     {
-        READ_DONE = 0,
+        NOTIFY_MEMORY = 0,
+        READ_DONE,
         WRITE_DONE
     };
 
