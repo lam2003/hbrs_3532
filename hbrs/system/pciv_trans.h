@@ -1,10 +1,10 @@
 #pragma once
-
+//stl
 #include <thread>
 #include <mutex>
 #include <atomic>
 #include <memory>
-
+//self
 #include "common/global.h"
 #include "system/pciv_comm.h"
 
@@ -34,9 +34,9 @@ public:
     void OnFrame(const VENC_STREAM_S &st, int chn) override;
 
 protected:
-    int32_t TransportData();
+    static int32_t TransportData(pciv::Context *ctx, pciv::PosInfo &pos_info, pciv::Buffer &buf, const pciv::MemoryInfo &mem_info);
 
-    int32_t QueryWritePos();
+    static int32_t QueryWritePos(const pciv::PosInfo &pos_info, int len);
 
     explicit PCIVTrans();
 

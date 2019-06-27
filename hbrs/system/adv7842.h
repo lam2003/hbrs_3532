@@ -1,12 +1,12 @@
 #pragma once
-
+//stl
 #include <memory>
 #include <thread>
 #include <atomic>
 #include <mutex>
-
+//driver
 #include <adv7842.h>
-
+//self
 #include "common/global.h"
 
 namespace rs
@@ -23,13 +23,16 @@ public:
 
     void Close();
 
+    int GetInputFormat(InputFormat &fmt);
+
 protected:
     explicit Adv7842();
 
 private:
+    std::mutex mux_;
+    InputFormat fmt_;
     std::unique_ptr<std::thread> thread_;
     std::atomic<bool> run_;
-    std::atomic<bool> has_signal_;
     bool init_;
 };
 } // namespace rs

@@ -32,7 +32,14 @@ main(int32_t argc, char **argv)
 {
 	int32_t ret;
 	//全局设置为1080P(支持的最大分辨率),不用改变
-	rs::MPPSystem::Instance()->Initialize({CAPTURE_MODE_1080P, 10});
+	rs::MPPSystem::Instance()->Initialize(10);
+	rs::Adv7842::Instance()->Initialize(MODE_HDMI);
+// printf("sleep10\n");
+// 	sleep(10);
+// 	printf("closing...\n");
+// 	rs::Adv7842::Instance()->Close();
+// 	rs::MPPSystem::Instance()->Close();
+// 	printf("closed\n");
 	rs::VideoInput vi;
 	vi.Initialize({6, 12, CAPTURE_MODE_1080P});
 
@@ -53,7 +60,7 @@ main(int32_t argc, char **argv)
 		log_e("error:%s", make_error_code(static_cast<err_code>(ret)).message().c_str());
 		return ret;
 	}	
-	rs::Adv7842::Instance()->Initialize(MODE_HDMI);
+
 
 	rs::pciv::Msg msg;
 	uint8_t tmp_buf[1024];
@@ -62,7 +69,7 @@ main(int32_t argc, char **argv)
 	{
 		do
 		{
-			ret = rs::PCIVComm::Instance()->Recv(PCIV_MASTER_ID, rs::PCIVComm::Instance()->GetCMDPort(), tmp_buf, sizeof(tmp_buf));
+			ret = rs::PCIVComm::Instance()->Recv(PCIV_MASTER_ID, rs::PCIVComm::Instance()->GetCMDPort(), tmp_buf, sizeof(tmp_buf),500000);
 			if (ret > 0)
 			{
 				if (!msg_buf.Append(tmp_buf, ret))
@@ -70,10 +77,6 @@ main(int32_t argc, char **argv)
 					log_e("buffer fill");
 					return KNotEnoughBuf;
 				}
-			}
-			else
-			{
-				usleep(10000); //10ms
 			}
 		} while (g_Run && msg_buf.Size() < sizeof(msg));
 
@@ -91,7 +94,8 @@ main(int32_t argc, char **argv)
 			{
 				rs::pciv::MemoryInfo mem_info;
 				memcpy(&mem_info, msg.data, sizeof(mem_info));
-				// rs::PCIVTrans::Instance()->Close();
+				venc.RemoveAllVideoSink();
+				rs::PCIVTrans::Instance()->Close();
 				rs::PCIVTrans::Instance()->Initialize(rs::PCIVComm::Instance(), mem_info);
 				venc.AddVideoSink(rs::PCIVTrans::Instance());
 				break;

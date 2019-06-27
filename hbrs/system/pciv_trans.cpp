@@ -1,25 +1,22 @@
+//self
 #include "system/pciv_trans.h"
 #include "common/buffer.h"
-
-#include <map>
 
 namespace rs
 {
 
 using namespace pciv;
 
-static std::map<int, int> Slave1_VencChn2VdecChn = {
-    {0, 3}};
-static std::map<int, int> Slave3_VencChn2VdecChn = {
-    {0, 0},
-    {1, 1},
-    {2, 2}};
 
 PCIVTrans::~PCIVTrans()
 {
 }
 
-PCIVTrans::PCIVTrans() : init_(false)
+PCIVTrans::PCIVTrans() : run_(false),
+                         trans_thread_(nullptr),
+                         recv_msg_thread_(nullptr),
+                         ctx_(nullptr),
+                         init_(false)
 {
 }
 
@@ -29,36 +26,30 @@ PCIVTrans *PCIVTrans::Instance()
     return instance;
 }
 
-static bool Recv(pciv::Context *ctx, int remote_id, uint8_t *tmp_buf, int32_t buf_len, rs::Buffer<allocator_1k> &msg_buf, const std::atomic<bool> &run, Msg &msg)
+static int Recv(pciv::Context *ctx, int remote_id, int port, uint8_t *tmp_buf, int32_t buf_len, rs::Buffer<allocator_1k> &msg_buf, const std::atomic<bool> &run, Msg &msg)
 {
     int ret;
     do
     {
-        ret = ctx->Recv(remote_id, ctx->GetTransWritePort(), tmp_buf, buf_len);
+        ret = ctx->Recv(remote_id, port, tmp_buf, buf_len, 500000); //500ms
         if (ret > 0)
         {
             if (!msg_buf.Append(tmp_buf, ret))
             {
                 log_e("append data to msg_buf failed");
-                log_e("error:%s", make_error_code(static_cast<err_code>(KNotEnoughBuf)).message().c_str());
-                return false;
+                return KNotEnoughBuf;
             }
         }
-        else
-        {
-            usleep(10000); //10ms
-        }
-
+        else if (ret < 0)
+            return ret;
     } while (run && msg_buf.Size() < sizeof(msg));
 
     if (msg_buf.Size() >= sizeof(msg))
     {
         msg_buf.Get(reinterpret_cast<uint8_t *>(&msg), sizeof(msg));
         msg_buf.Consume(sizeof(msg));
-        return true;
     }
-
-    return false;
+    return KSuccess;
 }
 
 int32_t PCIVTrans::Initialize(Context *ctx, const MemoryInfo &mem_info)
@@ -69,8 +60,8 @@ int32_t PCIVTrans::Initialize(Context *ctx, const MemoryInfo &mem_info)
     mem_info_ = mem_info;
     ctx_ = ctx;
 
-    pos_info_.start_pos = 0;
-    pos_info_.end_pos = 0;
+    memset(&pos_info_, 0, sizeof(pos_info_));
+    memset(&buf_, 0, sizeof(buf_));
 
     buf_.blk = HI_MPI_VB_GetBlock(VB_INVALID_POOLID, PCIV_WINDOW_SIZE / 2, nullptr);
     if (buf_.blk == VB_INVALID_HANDLE)
@@ -94,8 +85,6 @@ int32_t PCIVTrans::Initialize(Context *ctx, const MemoryInfo &mem_info)
         return KSDKError;
     }
 
-    buf_.len = 0;
-
     run_ = true;
     trans_thread_ = std::unique_ptr<std::thread>(new std::thread([this]() {
         int ret;
@@ -105,14 +94,9 @@ int32_t PCIVTrans::Initialize(Context *ctx, const MemoryInfo &mem_info)
             std::unique_lock<std::mutex> lock(mux_);
             if (buf_.len > 0)
             {
-                ret = TransportData();
+                ret = TransportData(ctx_, pos_info_, buf_, mem_info_);
                 if (ret != KSuccess)
-                {
-                    log_e("error:%s", make_error_code(static_cast<err_code>(ret)).message().c_str());
-                    if (ret == KNotEnoughBuf)
-                        continue;
                     return;
-                }
             }
         }
     }));
@@ -122,7 +106,7 @@ int32_t PCIVTrans::Initialize(Context *ctx, const MemoryInfo &mem_info)
         rs::Buffer<rs::allocator_1k> msg_buf;
         while (run_)
         {
-            if (Recv(ctx_, PCIV_MASTER_ID, tmp_buf, sizeof(tmp_buf), msg_buf, run_, msg))
+            if (Recv(ctx_, PCIV_MASTER_ID, ctx_->GetTransWritePort(), tmp_buf, sizeof(tmp_buf), msg_buf, run_, msg) == KSuccess && run_)
             {
                 if (msg.type == Msg::Type::READ_DONE)
                 {
@@ -164,35 +148,38 @@ void PCIVTrans::Close()
     init_ = false;
 }
 
-int32_t PCIVTrans::QueryWritePos()
+int32_t PCIVTrans::QueryWritePos(const PosInfo &pos_info, int len)
 {
-    if (pos_info_.end_pos >= pos_info_.start_pos)
+    if (pos_info.end_pos >= pos_info.start_pos)
     {
-        if ((pos_info_.end_pos + buf_.len) <= PCIV_WINDOW_SIZE)
-            return pos_info_.end_pos;
-        else if (buf_.len < pos_info_.start_pos)
+        if ((pos_info.end_pos + len) <= PCIV_WINDOW_SIZE)
+            return pos_info.end_pos;
+        else if (len < pos_info.start_pos)
             return 0;
     }
     else
     {
-        if ((pos_info_.end_pos + buf_.len) < pos_info_.start_pos)
-            return pos_info_.end_pos;
+        if ((pos_info.end_pos + len) < pos_info.start_pos)
+            return pos_info.end_pos;
     }
     return -1;
 }
 
-int32_t PCIVTrans::TransportData()
+int32_t PCIVTrans::TransportData(Context *ctx, PosInfo &pos_info, pciv::Buffer &buf, const MemoryInfo &mem_info)
 {
     int32_t ret;
 
-    int32_t write_pos = QueryWritePos();
+    int32_t write_pos = QueryWritePos(pos_info, buf.len);
     if (write_pos == -1)
+    {
+        log_e("query write pos failed");
         return KNotEnoughBuf;
+    }
 
     PCIV_DMA_BLOCK_S dma_blks[PCIV_MAX_DMABLK];
-    dma_blks[0].u32BlkSize = buf_.len;
-    dma_blks[0].u32SrcAddr = buf_.phy_addr;
-    dma_blks[0].u32DstAddr = mem_info_.phy_addr + write_pos;
+    dma_blks[0].u32BlkSize = buf.len;
+    dma_blks[0].u32SrcAddr = buf.phy_addr;
+    dma_blks[0].u32DstAddr = mem_info.phy_addr + write_pos;
 
     PCIV_DMA_TASK_S dma_ask;
     dma_ask.pBlock = &dma_blks[0];
@@ -210,23 +197,23 @@ int32_t PCIVTrans::TransportData()
         return KSDKError;
     }
 
-    pos_info_.end_pos = write_pos + buf_.len;
+    pos_info.end_pos = write_pos + buf.len;
 
     PosInfo tmp;
     tmp.start_pos = write_pos;
-    tmp.end_pos = write_pos + buf_.len;
+    tmp.end_pos = write_pos + buf.len;
 
     Msg msg;
     msg.type = Msg::Type::WRITE_DONE;
     memcpy(msg.data, &tmp, sizeof(tmp));
 
-    ret = ctx_->Send(PCIV_MASTER_ID, ctx_->GetTransReadPort(), reinterpret_cast<uint8_t *>(&msg), sizeof(msg));
+    ret = ctx->Send(PCIV_MASTER_ID, ctx->GetTransReadPort(), reinterpret_cast<uint8_t *>(&msg), sizeof(msg));
     if (ret != KSuccess)
         return ret;
 
-    buf_.len = 0;
+    buf.len = 0;
 
-    return ret;
+    return KSuccess;
 }
 
 void PCIVTrans::OnFrame(const VENC_STREAM_S &st, int chn)
@@ -248,8 +235,7 @@ void PCIVTrans::OnFrame(const VENC_STREAM_S &st, int chn)
     uint32_t free_len = (PCIV_WINDOW_SIZE / 2) - buf_.len;
     if (free_len < sizeof(StreamInfo) + align_len)
     {
-        log_e("pciv local buffer free size less than data size");
-        log_e("error:%s", make_error_code(static_cast<err_code>(KNotEnoughBuf)).message().c_str());
+        log_d("local buffer not enough");
         return;
     }
 

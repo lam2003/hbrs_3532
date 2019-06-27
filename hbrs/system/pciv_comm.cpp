@@ -1,5 +1,5 @@
+//self
 #include "system/pciv_comm.h"
-#include "common/utils.h"
 
 namespace rs
 {
@@ -34,7 +34,7 @@ int32_t PCIVComm::Initialize()
 
     int32_t ret;
 
-    ret = EnumChip(local_id_);
+    ret = EnumChip();
     if (ret != KSuccess)
         return ret;
 
@@ -105,7 +105,7 @@ int32_t PCIVComm::WaitConn(int32_t remote_id)
     }
 
     while (ioctl(fd, HI_MCC_IOC_CHECK, &attr))
-        usleep(10000);
+        usleep(10000); //10ms
 
     log_d("chip[%d] connected", remote_id);
 
@@ -133,7 +133,6 @@ int32_t PCIVComm::OpenPort(int32_t remote_id, int32_t port, std::vector<std::vec
     ret = ioctl(fd, HI_MCC_IOC_CONNECT, &attr);
     if (ret != KSuccess)
     {
-        close(fd);
         log_e("ioctl HI_MCC_IOC_CONNECT failed,%s", strerror(errno));
         return KSystemError;
     }
@@ -143,7 +142,7 @@ int32_t PCIVComm::OpenPort(int32_t remote_id, int32_t port, std::vector<std::vec
     return KSuccess;
 }
 
-int32_t PCIVComm::EnumChip(int32_t &local_id)
+int32_t PCIVComm::EnumChip()
 {
     int32_t ret;
 
@@ -156,6 +155,8 @@ int32_t PCIVComm::EnumChip(int32_t &local_id)
     }
 
     hi_mcc_handle_attr attr;
+    memset(&attr, 0, sizeof(attr));
+
     ret = ioctl(fd, HI_MCC_IOC_ATTR_INIT, &attr);
     if (ret < 0)
     {
@@ -208,12 +209,31 @@ int32_t PCIVComm::Send(int32_t remote_id, int32_t port, uint8_t *data, int32_t l
     return KSuccess;
 }
 
-int32_t PCIVComm::Recv(int32_t remote_id, int32_t port, uint8_t *data, int32_t len)
+int32_t PCIVComm::Recv(int32_t remote_id, int32_t port, uint8_t *data, int32_t len, int timeout)
 {
     if (!init_)
-        return KUnInitialized;
-    int32_t ret;
+        return KInitialized;
+
+    fd_set fds;
+    timeval tv;
+
     int32_t fd = remote_fds_[remote_id][port];
+
+    FD_ZERO(&fds);
+    FD_SET(fd, &fds);
+    tv.tv_sec = 0;
+    tv.tv_usec = timeout;
+
+    int ret = select(fd + 1, &fds, NULL, NULL, &tv);
+    if (ret < 0)
+    {
+        log_e("select failed,%s", strerror(errno));
+        return KSystemError;
+    }
+
+    if (ret == 0)
+        return 0;
+
     ret = read(fd, data, len);
     return ret;
 }
