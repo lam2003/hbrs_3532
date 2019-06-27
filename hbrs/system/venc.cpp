@@ -1,3 +1,4 @@
+//self
 #include "system/venc.h"
 
 namespace rs
@@ -14,6 +15,7 @@ VideoEncode::VideoEncode() : thread_(nullptr),
 
 VideoEncode::~VideoEncode()
 {
+    Close();
 }
 
 int32_t VideoEncode::Initialize(const Params &params)
@@ -27,6 +29,7 @@ int32_t VideoEncode::Initialize(const Params &params)
 
     VENC_ATTR_H264_S h264_attr;
     memset(&h264_attr, 0, sizeof(h264_attr));
+
     h264_attr.u32MaxPicWidth = params_.width;
     h264_attr.u32MaxPicHeight = params_.height;
     h264_attr.u32PicWidth = params_.width;
@@ -106,9 +109,6 @@ int32_t VideoEncode::Initialize(const Params &params)
     thread_ = std::unique_ptr<std::thread>(new std::thread([this]() {
         int32_t ret;
 
-        VENC_STREAM_S stream;
-        VENC_CHN_STAT_S chn_stat;
-
         ret = HI_MPI_VENC_StartRecvPic(params_.chn);
         if (ret != KSuccess)
         {
@@ -134,6 +134,9 @@ int32_t VideoEncode::Initialize(const Params &params)
             return;
         }
 
+        VENC_STREAM_S stream;
+        VENC_CHN_STAT_S chn_stat;
+
         while (run_)
         {
             FD_ZERO(&fds);
@@ -145,7 +148,7 @@ int32_t VideoEncode::Initialize(const Params &params)
             ret = select(fd + 1, &fds, NULL, NULL, &tv);
             if (ret < 0)
             {
-                log_e("select failed");
+                log_e("select failed,%s", strerror(errno));
                 return;
             }
 
@@ -165,7 +168,7 @@ int32_t VideoEncode::Initialize(const Params &params)
 
                 if (!chn_stat.u32CurPacks)
                 {
-                    log_w("current frame is null");
+                    log_e("current frame is null");
                     return;
                 }
 
@@ -180,7 +183,7 @@ int32_t VideoEncode::Initialize(const Params &params)
                     }
                     packet_buf_size = sizeof(VENC_PACK_S) * chn_stat.u32CurPacks;
                 }
-                stream.pstPack = (VENC_PACK_S *)packet_buf;
+                stream.pstPack = reinterpret_cast<VENC_PACK_S *>(packet_buf);
                 stream.u32PackCount = chn_stat.u32CurPacks;
 
                 ret = HI_MPI_VENC_GetStream(params_.chn, &stream, HI_TRUE);
@@ -189,14 +192,14 @@ int32_t VideoEncode::Initialize(const Params &params)
                     log_e("HI_MPI_VENC_GetStream failed with %#x", ret);
                     return;
                 }
-
-                video_sinks_mux_.lock();
-                for (uint32_t i = 0; i < stream.u32PackCount; i++)
                 {
-                    for (size_t j = 0; j < video_sinks_.size(); j++)
-                        video_sinks_[j]->OnFrame(stream, params_.chn);
+                    std::unique_lock<std::mutex> lock(video_sinks_mux_);
+                    for (uint32_t i = 0; i < stream.u32PackCount; i++)
+                    {
+                        for (size_t j = 0; j < video_sinks_.size(); j++)
+                            video_sinks_[j]->OnFrame(stream, params_.chn);
+                    }
                 }
-                video_sinks_mux_.unlock();
 
                 ret = HI_MPI_VENC_ReleaseStream(params_.chn, &stream);
                 if (HI_SUCCESS != ret)
@@ -222,6 +225,14 @@ int32_t VideoEncode::Initialize(const Params &params)
 
 void VideoEncode::Close()
 {
+    if (!init_)
+        return;
+    run_ = false;
+    thread_->join();
+    thread_.reset();
+    thread_ = nullptr;
+    video_sinks_.clear();
+    init_ = false;
 }
 
 void VideoEncode::AddVideoSink(VideoSink<VENC_STREAM_S> *video_sink)

@@ -1,7 +1,6 @@
 #pragma once
-
+//self
 #include "common/global.h"
-#include "system/vm.h"
 
 namespace rs
 {
@@ -11,12 +10,10 @@ namespace vpss
 struct Params
 {
     int32_t grp;
-    CaptureMode mode;
 };
-
 } // namespace vpss
 
-class VideoProcess : public Module<vpss::Params>
+class VideoProcess
 {
 
 public:
@@ -24,14 +21,14 @@ public:
 
     virtual ~VideoProcess();
 
-    int32_t Initialize(const vpss::Params &params) override;
+    int32_t Initialize(const vpss::Params &params);
 
-    void Close() override;
+    void Close();
 
-    int32_t SetChnSize(int32_t chn,const SIZE_S &size);
+    int32_t SetChnSize(int32_t chn, const SIZE_S &size, HI_VPSS_CHN_MODE_E mode = VPSS_CHN_MODE_USER);
 
 protected:
-    static int32_t SetChnMode(int32_t grp, int32_t chn, const SIZE_S &size);
+    static int32_t SetChnMode(int32_t grp, int32_t chn, const SIZE_S &size, HI_VPSS_CHN_MODE_E mode);
 
 private:
     vpss::Params params_;

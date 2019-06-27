@@ -12,6 +12,7 @@ VideoProcess::VideoProcess() : init_(false)
 
 VideoProcess::~VideoProcess()
 {
+    Close();
 }
 
 int32_t VideoProcess::Initialize(const Params &params)
@@ -24,9 +25,10 @@ int32_t VideoProcess::Initialize(const Params &params)
     params_ = params;
 
     VPSS_GRP_ATTR_S attr;
-    SIZE_S size = Utils::GetSize(params_.mode);
-    attr.u32MaxH = size.u32Height;
-    attr.u32MaxW = size.u32Width;
+    memset(&attr, 0, sizeof(attr));
+
+    attr.u32MaxH = RS_MAX_HEIGHT;
+    attr.u32MaxW = RS_MAX_WIDTH;
     attr.bDrEn = HI_FALSE;
     attr.bDbEn = HI_FALSE;
     attr.bIeEn = HI_FALSE;
@@ -64,17 +66,17 @@ int32_t VideoProcess::Initialize(const Params &params)
     return KSuccess;
 }
 
-int32_t VideoProcess::SetChnMode(int32_t grp, int32_t chn, const SIZE_S &size)
+int32_t VideoProcess::SetChnMode(int32_t grp, int32_t chn, const SIZE_S &size, HI_VPSS_CHN_MODE_E mode)
 {
     int32_t ret;
-    VPSS_CHN_MODE_S mode;
-    memset(&mode, 0, sizeof(mode));
-    mode.enChnMode = VPSS_CHN_MODE_USER;
-    mode.u32Width = size.u32Width;
-    mode.u32Height = size.u32Height;
-    mode.bDouble = HI_FALSE;
-    mode.enPixelFormat = RS_PIXEL_FORMAT;
-    ret = HI_MPI_VPSS_SetChnMode(grp, chn, &mode);
+    VPSS_CHN_MODE_S chn_mode;
+    memset(&chn_mode, 0, sizeof(chn_mode));
+    chn_mode.enChnMode = mode;
+    chn_mode.u32Width = size.u32Width;
+    chn_mode.u32Height = size.u32Height;
+    chn_mode.bDouble = HI_FALSE;
+    chn_mode.enPixelFormat = RS_PIXEL_FORMAT;
+    ret = HI_MPI_VPSS_SetChnMode(grp, chn, &chn_mode);
     if (ret != KSuccess)
     {
         log_e("HI_MPI_VPSS_SetChnMode failed with %#x", ret);
@@ -83,13 +85,13 @@ int32_t VideoProcess::SetChnMode(int32_t grp, int32_t chn, const SIZE_S &size)
     return KSuccess;
 }
 
-int32_t VideoProcess::SetChnSize(int32_t chn, const SIZE_S &size)
+int32_t VideoProcess::SetChnSize(int32_t chn, const SIZE_S &size, HI_VPSS_CHN_MODE_E mode)
 {
     if (!init_)
         return KUnInitialized;
 
     int32_t ret;
-    ret = SetChnMode(params_.grp, chn, size);
+    ret = SetChnMode(params_.grp, chn, size, mode);
     if (ret != KSuccess)
         return ret;
 
@@ -98,6 +100,26 @@ int32_t VideoProcess::SetChnSize(int32_t chn, const SIZE_S &size)
 
 void VideoProcess::Close()
 {
+    if (!init_)
+        return;
+    int ret;
+
+    ret = HI_MPI_VPSS_StopGrp(params_.grp);
+    if (ret != KSuccess)
+        log_e("HI_MPI_VPSS_StopGrp failed with %#x", ret);
+
+    for (int i = 0; i < VPSS_MAX_CHN_NUM; i++)
+    {
+        ret = HI_MPI_VPSS_DisableChn(params_.grp, i);
+        if (ret != KSuccess)
+            log_e("HI_MPI_VPSS_DisableChn failed with %#x", ret);
+    }
+
+    ret = HI_MPI_VPSS_DestroyGrp(params_.grp);
+    if (ret != KSuccess)
+        log_e("HI_MPI_VPSS_DestroyGrp failed with %#x", ret);
+
+    init_ = false;
 }
 
-}; // namespace rs
+} // namespace rs

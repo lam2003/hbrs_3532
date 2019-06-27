@@ -1,15 +1,24 @@
 //self
 #include "system/pciv_trans.h"
 #include "common/buffer.h"
+//stl
+#include <map>
 
 namespace rs
 {
 
 using namespace pciv;
 
+static std::map<int, int> Slave1_VencChn2VdecChn = { //从片1 VENC通道与VDEC通道映射关系
+    {0, 3}};
+static std::map<int, int> Slave3_VencChn2VdecChn = { //从片3 VENC通道与VDEC通道映射关系
+    {0, 0},
+    {1, 1},
+    {2, 2}};
 
 PCIVTrans::~PCIVTrans()
 {
+    Close();
 }
 
 PCIVTrans::PCIVTrans() : run_(false),
@@ -63,7 +72,7 @@ int32_t PCIVTrans::Initialize(Context *ctx, const MemoryInfo &mem_info)
     memset(&pos_info_, 0, sizeof(pos_info_));
     memset(&buf_, 0, sizeof(buf_));
 
-    buf_.blk = HI_MPI_VB_GetBlock(VB_INVALID_POOLID, PCIV_WINDOW_SIZE / 2, nullptr);
+    buf_.blk = HI_MPI_VB_GetBlock(VB_INVALID_POOLID, RS_PCIV_WINDOW_SIZE / 2, nullptr);
     if (buf_.blk == VB_INVALID_HANDLE)
     {
         log_e("HI_MPI_VB_GetBlock failed");
@@ -78,7 +87,7 @@ int32_t PCIVTrans::Initialize(Context *ctx, const MemoryInfo &mem_info)
     }
 
     buf_.vir_addr = reinterpret_cast<uint8_t *>(HI_MPI_SYS_Mmap(buf_.phy_addr,
-                                                                PCIV_WINDOW_SIZE / 2));
+                                                                RS_PCIV_WINDOW_SIZE / 2));
     if (buf_.vir_addr == nullptr)
     {
         log_e("HI_MPI_SYS_Mmap failed");
@@ -106,7 +115,7 @@ int32_t PCIVTrans::Initialize(Context *ctx, const MemoryInfo &mem_info)
         rs::Buffer<rs::allocator_1k> msg_buf;
         while (run_)
         {
-            if (Recv(ctx_, PCIV_MASTER_ID, ctx_->GetTransWritePort(), tmp_buf, sizeof(tmp_buf), msg_buf, run_, msg) == KSuccess && run_)
+            if (Recv(ctx_, RS_PCIV_MASTER_ID, ctx_->GetTransWritePort(), tmp_buf, sizeof(tmp_buf), msg_buf, run_, msg) == KSuccess && run_)
             {
                 if (msg.type == Msg::Type::READ_DONE)
                 {
@@ -142,7 +151,7 @@ void PCIVTrans::Close()
     recv_msg_thread_.reset();
     recv_msg_thread_ = nullptr;
 
-    HI_MPI_SYS_Munmap(buf_.vir_addr, PCIV_WINDOW_SIZE / 2);
+    HI_MPI_SYS_Munmap(buf_.vir_addr, RS_PCIV_WINDOW_SIZE / 2);
     HI_MPI_VB_ReleaseBlock(buf_.blk);
 
     init_ = false;
@@ -152,7 +161,7 @@ int32_t PCIVTrans::QueryWritePos(const PosInfo &pos_info, int len)
 {
     if (pos_info.end_pos >= pos_info.start_pos)
     {
-        if ((pos_info.end_pos + len) <= PCIV_WINDOW_SIZE)
+        if ((pos_info.end_pos + len) <= RS_PCIV_WINDOW_SIZE)
             return pos_info.end_pos;
         else if (len < pos_info.start_pos)
             return 0;
@@ -207,7 +216,7 @@ int32_t PCIVTrans::TransportData(Context *ctx, PosInfo &pos_info, pciv::Buffer &
     msg.type = Msg::Type::WRITE_DONE;
     memcpy(msg.data, &tmp, sizeof(tmp));
 
-    ret = ctx->Send(PCIV_MASTER_ID, ctx->GetTransReadPort(), reinterpret_cast<uint8_t *>(&msg), sizeof(msg));
+    ret = ctx->Send(RS_PCIV_MASTER_ID, ctx->GetTransReadPort(), reinterpret_cast<uint8_t *>(&msg), sizeof(msg));
     if (ret != KSuccess)
         return ret;
 
@@ -232,7 +241,7 @@ void PCIVTrans::OnFrame(const VENC_STREAM_S &st, int chn)
     int32_t align_len = (len % 4 == 0 ? len : (len + (4 - len % 4)));
 
     std::unique_lock<std::mutex> lock(mux_);
-    uint32_t free_len = (PCIV_WINDOW_SIZE / 2) - buf_.len;
+    uint32_t free_len = (RS_PCIV_WINDOW_SIZE / 2) - buf_.len;
     if (free_len < sizeof(StreamInfo) + align_len)
     {
         log_d("local buffer not enough");

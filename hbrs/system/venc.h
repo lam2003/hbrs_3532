@@ -1,12 +1,12 @@
 
+//stl
 #include <thread>
 #include <atomic>
 #include <mutex>
 #include <vector>
 #include <memory>
-
+//self
 #include "common/global.h"
-#include "system/vm.h"
 
 #pragma once
 
@@ -29,16 +29,16 @@ struct Params
 
 } // namespace venc
 
-class VideoEncode : public Module<venc::Params>
+class VideoEncode
 {
 public:
     explicit VideoEncode();
 
     virtual ~VideoEncode();
 
-    int32_t Initialize(const venc::Params &params) override;
+    int32_t Initialize(const venc::Params &params);
 
-    void Close() override;
+    void Close();
 
     void AddVideoSink(VideoSink<VENC_STREAM_S> *video_sink);
 

@@ -46,16 +46,16 @@ int32_t PCIVComm::Initialize()
             remote_fds_[i][j] = -1;
     }
 
-    ret = OpenPort(PCIV_MASTER_ID, CommCMDPort, remote_fds_);
+    ret = OpenPort(RS_PCIV_MASTER_ID, CommCMDPort, remote_fds_);
     if (ret != KSuccess)
         return ret;
-    ret = OpenPort(PCIV_MASTER_ID, TransReadPort, remote_fds_);
+    ret = OpenPort(RS_PCIV_MASTER_ID, TransReadPort, remote_fds_);
     if (ret != KSuccess)
         return ret;
-    ret = OpenPort(PCIV_MASTER_ID, TransWritePort, remote_fds_);
+    ret = OpenPort(RS_PCIV_MASTER_ID, TransWritePort, remote_fds_);
     if (ret != KSuccess)
         return ret;
-    ret = WaitConn(PCIV_MASTER_ID);
+    ret = WaitConn(RS_PCIV_MASTER_ID);
     if (ret != KSuccess)
         return ret;
 

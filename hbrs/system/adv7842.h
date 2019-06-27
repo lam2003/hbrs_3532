@@ -23,14 +23,14 @@ public:
 
     void Close();
 
-    int GetInputFormat(InputFormat &fmt);
+    int GetInputFormat(VideoInputFormat &fmt);
 
 protected:
     explicit Adv7842();
 
 private:
     std::mutex mux_;
-    InputFormat fmt_;
+    VideoInputFormat fmt_;
     std::unique_ptr<std::thread> thread_;
     std::atomic<bool> run_;
     bool init_;

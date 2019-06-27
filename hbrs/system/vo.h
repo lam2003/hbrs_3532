@@ -1,9 +1,7 @@
 #pragma once
 
-// #include <vector>
-
+//self
 #include "common/global.h"
-#include "system/vm.h"
 
 namespace rs
 {
@@ -12,8 +10,8 @@ namespace vo
 struct Params
 {
     int32_t dev;
-    int32_t intf_type;
-    int32_t intf_sync;
+    VO_INTF_TYPE_E intf_type;
+    VO_INTF_SYNC_E intf_sync;
 };
 
 struct Channel
@@ -24,25 +22,27 @@ struct Channel
 };
 } // namespace vo
 
-class VideoOutput : public Module<vo::Params>
+class VideoOutput
 {
 public:
     explicit VideoOutput();
 
     virtual ~VideoOutput();
 
-    int32_t Initialize(const vo::Params &params) override;
+    int32_t Initialize(const vo::Params &params);
 
-    void Close() override;
+    void Close();
 
     int32_t StartChn(const vo::Channel &chn);
 
     int32_t StopChn(int32_t chn);
 
-protected:
-    static int32_t StartHDMI(int32_t dev, int32_t intf_sync);
+    int32_t StopAllChn();
 
-    static int32_t StartDevLayer(int32_t dev, int32_t intf_type, int32_t intf_sync);
+protected:
+    static int32_t StartHDMI(HI_HDMI_ID_E dev, VO_INTF_SYNC_E intf_sync);
+
+    static int32_t StartDevLayer(int32_t dev, VO_INTF_TYPE_E intf_type, VO_INTF_SYNC_E intf_sync);
 
 private:
     vo::Params params_;

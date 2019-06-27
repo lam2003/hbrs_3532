@@ -115,7 +115,7 @@ int32_t MPPSystem::ConfigVB(int blk_num)
     conf.astCommPool[1].u32BlkCnt = blk_num / 2;
     strcpy(conf.astCommPool[1].acMmzName, "ddr1");
 
-    conf.astCommPool[2].u32BlkSize = PCIV_WINDOW_SIZE / 2;
+    conf.astCommPool[2].u32BlkSize = RS_PCIV_WINDOW_SIZE / 2;
     conf.astCommPool[2].u32BlkCnt = 1;
 
     ret = HI_MPI_VB_SetConf(&conf);

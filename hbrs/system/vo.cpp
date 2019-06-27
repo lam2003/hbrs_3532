@@ -1,3 +1,4 @@
+//self
 #include "system/vo.h"
 #include "common/utils.h"
 
@@ -14,6 +15,7 @@ VideoOutput::VideoOutput() : init_(false)
 
 VideoOutput::~VideoOutput()
 {
+    Close();
 }
 
 int32_t VideoOutput::Initialize(const Params &params)
@@ -41,7 +43,7 @@ int32_t VideoOutput::Initialize(const Params &params)
     return KSuccess;
 }
 
-int32_t VideoOutput::StartHDMI(int32_t dev, int32_t intf_sync)
+int32_t VideoOutput::StartHDMI(HI_HDMI_ID_E dev, VO_INTF_SYNC_E intf_sync)
 {
     int32_t ret;
 
@@ -49,6 +51,7 @@ int32_t VideoOutput::StartHDMI(int32_t dev, int32_t intf_sync)
     HI_HDMI_ATTR_S attr;
     HI_HDMI_VIDEO_FMT_E fmt;
 
+    memset(&param, 0, sizeof(param));
     param.enForceMode = HI_HDMI_FORCE_HDMI;
     param.pCallBackArgs = NULL;
     param.pfnHdmiEventCallback = NULL;
@@ -60,21 +63,22 @@ int32_t VideoOutput::StartHDMI(int32_t dev, int32_t intf_sync)
         return KSDKError;
     }
 
-    ret = HI_MPI_HDMI_Open(static_cast<HI_HDMI_ID_E>(dev));
+    ret = HI_MPI_HDMI_Open(dev);
     if (ret != KSuccess)
     {
         log_e("HI_MPI_HDMI_Open failed with %#x", ret);
         return KSDKError;
     }
 
-    ret = HI_MPI_HDMI_GetAttr(static_cast<HI_HDMI_ID_E>(dev), &attr);
+    memset(&attr, 0, sizeof(attr));
+    ret = HI_MPI_HDMI_GetAttr(dev, &attr);
     if (ret != KSuccess)
     {
         log_e("HI_MPI_HDMI_GetAttr failed with %#x", ret);
         return KSDKError;
     }
 
-    fmt = Utils::GetHDMIFmt(static_cast<VO_INTF_SYNC_E>(intf_sync));
+    fmt = Utils::GetHDMIFmt(intf_sync);
 
     attr.bEnableHdmi = HI_TRUE;
     attr.bEnableVideo = HI_TRUE;
@@ -94,14 +98,14 @@ int32_t VideoOutput::StartHDMI(int32_t dev, int32_t intf_sync)
     attr.bHDCPEnable = HI_FALSE;
     attr.b3DEnable = HI_FALSE;
 
-    ret = HI_MPI_HDMI_SetAttr(static_cast<HI_HDMI_ID_E>(dev), &attr);
+    ret = HI_MPI_HDMI_SetAttr(dev, &attr);
     if (ret != KSuccess)
     {
         log_e("HI_MPI_HDMI_SetAttr failed with %#x", ret);
         return KSDKError;
     }
 
-    ret = HI_MPI_HDMI_Start(static_cast<HI_HDMI_ID_E>(dev));
+    ret = HI_MPI_HDMI_Start(dev);
     if (ret != KSuccess)
     {
         log_e("HI_MPI_HDMI_Start failed with %#x", ret);
@@ -110,7 +114,7 @@ int32_t VideoOutput::StartHDMI(int32_t dev, int32_t intf_sync)
     return KSuccess;
 }
 
-int32_t VideoOutput::StartDevLayer(int32_t dev, int32_t intf_type, int32_t intf_sync)
+int32_t VideoOutput::StartDevLayer(int32_t dev, VO_INTF_TYPE_E intf_type, VO_INTF_SYNC_E intf_sync)
 {
     log_d("vo[%d] intf_type:%d intf_sync:%d", dev, intf_type, intf_sync);
 
@@ -118,8 +122,8 @@ int32_t VideoOutput::StartDevLayer(int32_t dev, int32_t intf_type, int32_t intf_
 
     VO_PUB_ATTR_S pub_attr;
     memset(&pub_attr, 0, sizeof(pub_attr));
-    pub_attr.enIntfType = static_cast<VO_INTF_TYPE_E>(intf_type);
-    pub_attr.enIntfSync = static_cast<VO_INTF_SYNC_E>(intf_sync);
+    pub_attr.enIntfType = intf_type;
+    pub_attr.enIntfSync = intf_sync;
     pub_attr.u32BgColor = 0x0ffff;
     pub_attr.bDoubleFrame = HI_FALSE;
     ret = HI_MPI_VO_SetPubAttr(dev, &pub_attr);
@@ -139,8 +143,9 @@ int32_t VideoOutput::StartDevLayer(int32_t dev, int32_t intf_type, int32_t intf_
     VO_VIDEO_LAYER_ATTR_S layer_attr;
     memset(&layer_attr, 0, sizeof(layer_attr));
     layer_attr.enPixFormat = RS_PIXEL_FORMAT;
-    layer_attr.u32DispFrmRt = Utils::GetFrameRate(static_cast<VO_INTF_SYNC_E>(intf_sync));
-    SIZE_S size = Utils::GetSize(static_cast<VO_INTF_SYNC_E>(intf_sync));
+    layer_attr.u32DispFrmRt = Utils::GetFrameRate(intf_sync);
+
+    SIZE_S size = Utils::GetSize(intf_sync);
     layer_attr.stDispRect.s32X = 0;
     layer_attr.stDispRect.s32Y = 0;
     layer_attr.stDispRect.u32Width = size.u32Width;
@@ -181,8 +186,6 @@ int32_t VideoOutput::StartChn(const Channel &chn)
     attr.u32Priority = chn.level;
     attr.bDeflicker = HI_FALSE;
 
-    
-
     ret = HI_MPI_VO_SetChnAttr(params_.dev, chn.no, &attr);
     if (ret != KSuccess)
     {
@@ -200,7 +203,55 @@ int32_t VideoOutput::StartChn(const Channel &chn)
     return KSuccess;
 }
 
+int VideoOutput::StopAllChn()
+{
+    if (!init_)
+        return KUnInitialized;
+
+    int ret;
+    for (int i = 0; i < VO_MAX_CHN_NUM; i++)
+    {
+        ret = HI_MPI_VO_DisableChn(params_.dev, i);
+        if (ret != KSuccess)
+        {
+            log_e("HI_MPI_VO_DisableChn failed with %#x", ret);
+            return KSDKError;
+        }
+    }
+
+    return KSuccess;
+}
+
 void VideoOutput::Close()
 {
+    if (!init_)
+        return;
+
+    int ret;
+
+    StopAllChn();
+
+    ret = HI_MPI_VO_DisableVideoLayer(params_.dev);
+    if (ret != KSuccess)
+        log_e("HI_MPI_VO_DisableVideoLayer failed with %#x", ret);
+
+    ret = HI_MPI_VO_Disable(params_.dev);
+    if (ret != KSuccess)
+        log_e("HI_MPI_VO_Disable failed with %#x", ret);
+
+    if (params_.intf_type & VO_INTF_HDMI)
+    {
+        ret = HI_MPI_HDMI_Stop(HI_HDMI_ID_0);
+        if (ret != KSuccess)
+            log_e("HI_MPI_HDMI_Stop failed with %#x", ret);
+        ret = HI_MPI_HDMI_Close(HI_HDMI_ID_0);
+        if (ret != KSuccess)
+            log_e("HI_MPI_HDMI_Close failed with %#x", ret);
+        ret = HI_MPI_HDMI_DeInit();
+        if (ret != KSuccess)
+            log_e("HI_MPI_HDMI_DeInit failed with %#x", ret);
+    }
+
+    init_ = false;
 }
 } // namespace rs

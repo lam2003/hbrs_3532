@@ -76,7 +76,7 @@ int Adv7842::Initialize(ADV7842_CMODE_E mode)
     return KSuccess;
 }
 
-int Adv7842::GetInputFormat(InputFormat &fmt)
+int Adv7842::GetInputFormat(VideoInputFormat &fmt)
 {
     if (!init_)
         return KUnInitialized;
