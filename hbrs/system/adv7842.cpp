@@ -58,15 +58,23 @@ int Adv7842::Initialize(ADV7842_CMODE_E mode)
             if (htot * vtot != 0)
                 fps = bt.pixelclock / (htot * vtot);
 
-            mux_.lock();
-            fmt_.has_signal = true;
+            VideoInputFormat new_fmt;
+            new_fmt.has_signal = true;
             if (bt.width <= 0 || bt.height <= 0 || htot <= 0 || vtot <= 0 || fps <= 0)
-                fmt_.has_signal = false;
-            fmt_.width = bt.width;
-            fmt_.height = bt.height;
-            fmt_.interlaced = bt.interlaced;
-            fmt_.frame_rate = fps;
-            mux_.unlock();
+                new_fmt.has_signal = false;
+            new_fmt.width = bt.width;
+            new_fmt.height = bt.height;
+            new_fmt.interlaced = bt.interlaced;
+            new_fmt.frame_rate = fps;
+
+            if (fmt_ != new_fmt)
+            {
+                std::unique_lock<std::mutex> lock(mux_);
+                fmt_ = new_fmt;
+                if (listener_ != nullptr)
+                    listener_->OnChange(fmt_);
+            }
+
             usleep(1000000); //1000ms
         }
         close(fd);
@@ -80,6 +88,7 @@ int Adv7842::GetInputFormat(VideoInputFormat &fmt)
 {
     if (!init_)
         return KUnInitialized;
+
     std::unique_lock<std::mutex> lock(mux_);
     fmt = fmt_;
     return KSuccess;
@@ -94,10 +103,7 @@ void Adv7842::Close()
     thread_->join();
     thread_.reset();
     thread_ = nullptr;
-
-    mux_.lock();
-    memset(&fmt_, 0, sizeof(fmt_));
-    mux_.unlock();
+    listener_ = nullptr;
 
     init_ = false;
 }
@@ -108,4 +114,9 @@ Adv7842 *Adv7842::Instance()
     return instance;
 }
 
+void Adv7842::SetVIFmtListener(VIFmtListener *listener)
+{
+    std::unique_lock<std::mutex> lock(mux_);
+    listener_ = listener;
+}
 } // namespace rs

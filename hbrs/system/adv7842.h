@@ -25,6 +25,8 @@ public:
 
     int GetInputFormat(VideoInputFormat &fmt);
 
+    void SetVIFmtListener(VIFmtListener *listener);
+
 protected:
     explicit Adv7842();
 
@@ -33,6 +35,7 @@ private:
     VideoInputFormat fmt_;
     std::unique_ptr<std::thread> thread_;
     std::atomic<bool> run_;
+    VIFmtListener *listener_;
     bool init_;
 };
 } // namespace rs

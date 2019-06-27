@@ -1,31 +1,14 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <thread>
-#include <unistd.h>
 
-#include "system/vi.h"
+
 #include "system/mpp.h"
-#include "system/vpss.h"
-#include "system/vo.h"
-#include "system/venc.h"
 #include "system/adv7842.h"
-#include "system/pciv_trans.h"
-#include "common/utils.h"
-
-#include "common/err_code.h"
-#include "common/buffer.h"
 #include "system/pciv_comm.h"
+#include "system/pciv_trans.h"
+#include "system/vi.h"
 
 static bool g_Run = true;
 
-class Test : public rs::VideoSink<VENC_STREAM_S>
-{
-public:
-	void OnFrame(const VENC_STREAM_S &st, int chn)
-	{
-		printf("##############\n");
-	}
-};
+using namespace rs;
 
 int32_t
 main(int32_t argc, char **argv)
@@ -34,12 +17,16 @@ main(int32_t argc, char **argv)
 	//全局设置为1080P(支持的最大分辨率),不用改变
 	rs::MPPSystem::Instance()->Initialize(10);
 	rs::Adv7842::Instance()->Initialize(MODE_HDMI);
-// printf("sleep10\n");
-// 	sleep(10);
-// 	printf("closing...\n");
-// 	rs::Adv7842::Instance()->Close();
-// 	rs::MPPSystem::Instance()->Close();
-// 	printf("closed\n");
+
+	rs::VIHelper pc(4, 8);
+	rs::Adv7842::Instance()->SetVIFmtListener(&pc);
+	
+	// printf("sleep10\n");
+	// 	sleep(10);
+	// 	printf("closing...\n");
+	// 	rs::Adv7842::Instance()->Close();
+	// 	rs::MPPSystem::Instance()->Close();
+	// 	printf("closed\n");
 	// rs::VideoInput vi;
 	// vi.Initialize({6, 12, CAPTURE_MODE_1080P});
 
@@ -59,8 +46,7 @@ main(int32_t argc, char **argv)
 	// {
 	// 	log_e("error:%s", make_error_code(static_cast<err_code>(ret)).message().c_str());
 	// 	return ret;
-	// }	
-
+	// }
 
 	// rs::pciv::Msg msg;
 	// uint8_t tmp_buf[1024];
@@ -110,4 +96,3 @@ main(int32_t argc, char **argv)
 
 	return 0;
 }
-

@@ -143,6 +143,7 @@ int32_t VideoInput::Initialize(const Params &params)
     if (ret != KSuccess)
         return ret;
 
+    init_ = true;
     return KSuccess;
 }
 
