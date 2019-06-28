@@ -50,7 +50,7 @@ public:
     VIHelper(int dev, int chn) : dev_(dev), chn_(chn) {}
     ~VIHelper() = default;
 
-    void OnChange(const VideoInputFormat &fmt)
+    void OnChange(const VideoInputFormat &fmt) override
     {
         log_d("vi[%d][%d]has_signal:%d,fmt.width:%d,height:%d,fps:%d,interlaced:%d",
               dev_,
@@ -64,6 +64,11 @@ public:
         vi_.Close();
         if (fmt.has_signal)
             vi_.Initialize({dev_, chn_, fmt.width, fmt.height, fmt.interlaced});
+    }
+
+    void OnStop() override
+    {
+        vi_.Close();
     }
 
 private:

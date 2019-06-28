@@ -34,6 +34,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
+#include <signal.h>
 #include <fcntl.h>
 #include <unistd.h>
 //logger
@@ -48,6 +49,10 @@
 #define RS_PCIV_MASTER_ID 0                             //PCIV主片地址
 #define RS_MAX_WIDTH 1920                               //最大支持的视频宽度
 #define RS_MAX_HEIGHT 1080                              //最大支持的视频长度
+#define RS_PCIV_CMD_PORT 0                              //PCIV命令端口
+#define RS_PCIV_TRANS_READ_PORT 1                       //PCIV传输读端口
+#define RS_PCIV_TRANS_WRITE_PORT 2                      //PCIV传输写端口
+#define RS_MEM_BLK_NUM 20                               //系统VB内存块分配数量
 
 #define RS_ASSERT(cond)     \
     while (!(cond))         \

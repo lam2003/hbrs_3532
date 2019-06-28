@@ -3,7 +3,6 @@
 #include <thread>
 #include <atomic>
 #include <mutex>
-#include <vector>
 #include <memory>
 //self
 #include "common/global.h"
@@ -40,16 +39,14 @@ public:
 
     void Close();
 
-    void AddVideoSink(VideoSink<VENC_STREAM_S> *video_sink);
-
-    void RemoveAllVideoSink();
+    void SetVideoSink(VideoSink<VENC_STREAM_S> *video_sink);
 
 private:
     venc::Params params_;
-    std::vector<VideoSink<VENC_STREAM_S> *> video_sinks_;
-    std::mutex video_sinks_mux_;
+    std::mutex video_sink_mux_;
     std::unique_ptr<std::thread> thread_;
     std::atomic<bool> run_;
+    VideoSink<VENC_STREAM_S> *video_sink_;
     bool init_;
 
     static const int PacketBufferSize;

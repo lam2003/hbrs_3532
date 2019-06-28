@@ -35,12 +35,12 @@ PCIVTrans *PCIVTrans::Instance()
     return instance;
 }
 
-static int Recv(pciv::Context *ctx, int remote_id, int port, uint8_t *tmp_buf, int32_t buf_len, rs::Buffer<allocator_1k> &msg_buf, const std::atomic<bool> &run, Msg &msg)
+static int Recv(Context *ctx, int port, uint8_t *tmp_buf, int32_t buf_len, rs::Buffer<allocator_1k> &msg_buf, const std::atomic<bool> &run, Msg &msg)
 {
     int ret;
     do
     {
-        ret = ctx->Recv(remote_id, port, tmp_buf, buf_len, 500000); //500ms
+        ret = ctx->Recv(RS_PCIV_MASTER_ID, port, tmp_buf, buf_len, 500000); //500ms
         if (ret > 0)
         {
             if (!msg_buf.Append(tmp_buf, ret))
@@ -110,12 +110,12 @@ int32_t PCIVTrans::Initialize(Context *ctx, const MemoryInfo &mem_info)
         }
     }));
     recv_msg_thread_ = std::unique_ptr<std::thread>(new std::thread([this]() {
-        rs::pciv::Msg msg;
+        Msg msg;
         uint8_t tmp_buf[1024];
-        rs::Buffer<rs::allocator_1k> msg_buf;
+        rs::Buffer<allocator_1k> msg_buf;
         while (run_)
         {
-            if (Recv(ctx_, RS_PCIV_MASTER_ID, ctx_->GetTransWritePort(), tmp_buf, sizeof(tmp_buf), msg_buf, run_, msg) == KSuccess && run_)
+            if (Recv(ctx_, RS_PCIV_TRANS_WRITE_PORT, tmp_buf, sizeof(tmp_buf), msg_buf, run_, msg) == KSuccess && run_)
             {
                 if (msg.type == Msg::Type::READ_DONE)
                 {
@@ -216,7 +216,7 @@ int32_t PCIVTrans::TransportData(Context *ctx, PosInfo &pos_info, pciv::Buffer &
     msg.type = Msg::Type::WRITE_DONE;
     memcpy(msg.data, &tmp, sizeof(tmp));
 
-    ret = ctx->Send(RS_PCIV_MASTER_ID, ctx->GetTransReadPort(), reinterpret_cast<uint8_t *>(&msg), sizeof(msg));
+    ret = ctx->Send(RS_PCIV_MASTER_ID, RS_PCIV_TRANS_READ_PORT, reinterpret_cast<uint8_t *>(&msg), sizeof(msg));
     if (ret != KSuccess)
         return ret;
 

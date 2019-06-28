@@ -84,14 +84,12 @@ int Adv7842::Initialize(ADV7842_CMODE_E mode)
     return KSuccess;
 }
 
-int Adv7842::GetInputFormat(VideoInputFormat &fmt)
+void Adv7842::GetInputFormat(VideoInputFormat &fmt)
 {
     if (!init_)
-        return KUnInitialized;
-
+        return;
     std::unique_lock<std::mutex> lock(mux_);
     fmt = fmt_;
-    return KSuccess;
 }
 
 void Adv7842::Close()
@@ -103,6 +101,8 @@ void Adv7842::Close()
     thread_->join();
     thread_.reset();
     thread_ = nullptr;
+    if (listener_ != nullptr)
+        listener_->OnStop();
     listener_ = nullptr;
 
     init_ = false;

@@ -8,9 +8,6 @@ using namespace pciv;
 
 const int32_t PCIVComm::MsgPortBase = 100;
 const int32_t PCIVComm::MaxPortNum = 3;
-const int32_t PCIVComm::CommCMDPort = 0;
-const int32_t PCIVComm::TransReadPort = 1;
-const int32_t PCIVComm::TransWritePort = 2;
 
 PCIVComm *PCIVComm::Instance()
 {
@@ -46,13 +43,13 @@ int32_t PCIVComm::Initialize()
             remote_fds_[i][j] = -1;
     }
 
-    ret = OpenPort(RS_PCIV_MASTER_ID, CommCMDPort, remote_fds_);
+    ret = OpenPort(RS_PCIV_MASTER_ID, RS_PCIV_CMD_PORT, remote_fds_);
     if (ret != KSuccess)
         return ret;
-    ret = OpenPort(RS_PCIV_MASTER_ID, TransReadPort, remote_fds_);
+    ret = OpenPort(RS_PCIV_MASTER_ID, RS_PCIV_TRANS_READ_PORT, remote_fds_);
     if (ret != KSuccess)
         return ret;
-    ret = OpenPort(RS_PCIV_MASTER_ID, TransWritePort, remote_fds_);
+    ret = OpenPort(RS_PCIV_MASTER_ID, RS_PCIV_TRANS_WRITE_PORT, remote_fds_);
     if (ret != KSuccess)
         return ret;
     ret = WaitConn(RS_PCIV_MASTER_ID);
@@ -225,32 +222,11 @@ int32_t PCIVComm::Recv(int32_t remote_id, int32_t port, uint8_t *data, int32_t l
     tv.tv_usec = timeout;
 
     int ret = select(fd + 1, &fds, NULL, NULL, &tv);
-    if (ret < 0)
-    {
-        log_e("select failed,%s", strerror(errno));
-        return KSystemError;
-    }
-
-    if (ret == 0)
+    if (ret <= 0)
         return 0;
 
     ret = read(fd, data, len);
     return ret;
-}
-
-int32_t PCIVComm::GetTransReadPort()
-{
-    return TransReadPort;
-}
-
-int32_t PCIVComm::GetTransWritePort()
-{
-    return TransWritePort;
-}
-
-int32_t PCIVComm::GetCMDPort()
-{
-    return CommCMDPort;
 }
 
 } // namespace rs

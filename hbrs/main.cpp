@@ -5,94 +5,173 @@
 #include "system/pciv_comm.h"
 #include "system/pciv_trans.h"
 #include "system/vi.h"
-
-static bool g_Run = true;
+#include "system/vo.h"
+#include "system/vpss.h"
+#include "system/venc.h"
+#include "common/buffer.h"
 
 using namespace rs;
 
-int32_t
-main(int32_t argc, char **argv)
+#define CHACK_ERROR(a)                                                                  \
+	if (KSuccess != a)                                                                  \
+	{                                                                                   \
+		log_e("error:%s", make_error_code(static_cast<err_code>(a)).message().c_str()); \
+		return a;                                                                       \
+	}
+
+static bool g_Run = true;
+
+static int Recv(pciv::Context *ctx, uint8_t *tmp_buf, int32_t buf_len, Buffer<allocator_1k> &msg_buf, pciv::Msg &msg)
 {
-	int32_t ret;
-	//全局设置为1080P(支持的最大分辨率),不用改变
-	rs::MPPSystem::Instance()->Initialize(10);
-	rs::Adv7842::Instance()->Initialize(MODE_HDMI);
+	int ret;
+	do
+	{
+		ret = ctx->Recv(RS_PCIV_MASTER_ID, RS_PCIV_CMD_PORT, tmp_buf, buf_len, 500000); //500ms
+		if (ret > 0)
+		{
+			if (!msg_buf.Append(tmp_buf, ret))
+			{
+				log_e("append data to msg_buf failed");
+				return KNotEnoughBuf;
+			}
+		}
+		else if (ret < 0)
+			return ret;
+	} while (g_Run && msg_buf.Size() < sizeof(msg));
 
-	rs::VIHelper pc(4, 8);
-	rs::Adv7842::Instance()->SetVIFmtListener(&pc);
-	
-	// printf("sleep10\n");
-	// 	sleep(10);
-	// 	printf("closing...\n");
-	// 	rs::Adv7842::Instance()->Close();
-	// 	rs::MPPSystem::Instance()->Close();
-	// 	printf("closed\n");
-	// rs::VideoInput vi;
-	// vi.Initialize({6, 12, CAPTURE_MODE_1080P});
+	if (msg_buf.Size() >= sizeof(msg))
+	{
+		msg_buf.Get(reinterpret_cast<uint8_t *>(&msg), sizeof(msg));
+		msg_buf.Consume(sizeof(msg));
+	}
+	return KSuccess;
+}
 
-	// rs::VideoProcess vpss;
-	// vpss.Initialize({0, CAPTURE_MODE_1080P});
+static void SignalHandler(int signo)
+{
+	if (signo == SIGINT)
+	{
+		g_Run = false;
+	}
+}
 
-	// rs::MPPSystem::Bind<HI_ID_VIU, HI_ID_VPSS>(0, 12, 0, 0);
+int32_t main(int32_t argc, char **argv)
+{
+	int ret;
 
-	// rs::VideoEncode venc;
-	// venc.Initialize({0, 0, 1920, 1080, 30, 2, 8000, VENC_RC_MODE_H264CBR});
+	signal(SIGINT, SignalHandler);
 
-	// rs::MPPSystem::Bind<HI_ID_VPSS, HI_ID_GROUP>(0, 1, 0, 0);
+	ret = MPPSystem::Instance()->Initialize(RS_MEM_BLK_NUM);
+	CHACK_ERROR(ret);
 
-	// //初始化PCIV信令模块
-	// ret = rs::PCIVComm::Instance()->Initialize();
-	// if (ret != KSuccess)
-	// {
-	// 	log_e("error:%s", make_error_code(static_cast<err_code>(ret)).message().c_str());
-	// 	return ret;
-	// }
+#if CHIP_TYPE == 1
+	VIHelper vi_pc(4, 8);
+	VideoProcess vpss_pc;
+	VideoOutput vo_pc;
+	VideoEncode venc_pc;
 
-	// rs::pciv::Msg msg;
-	// uint8_t tmp_buf[1024];
-	// rs::Buffer<rs::allocator_1k> msg_buf;
-	// while (g_Run)
-	// {
-	// 	do
-	// 	{
-	// 		ret = rs::PCIVComm::Instance()->Recv(RS_PCIV_MASTER_ID, rs::PCIVComm::Instance()->GetCMDPort(), tmp_buf, sizeof(tmp_buf),500000);
-	// 		if (ret > 0)
-	// 		{
-	// 			if (!msg_buf.Append(tmp_buf, ret))
-	// 			{
-	// 				log_e("buffer fill");
-	// 				return KNotEnoughBuf;
-	// 			}
-	// 		}
-	// 	} while (g_Run && msg_buf.Size() < sizeof(msg));
+	//初始化VPSS
+	ret = vpss_pc.Initialize({0});
+	CHACK_ERROR(ret);
+	//配置VPSS通道1
+	ret = vpss_pc.SetChnSize(1, {RS_MAX_WIDTH, RS_MAX_HEIGHT});
+	CHACK_ERROR(ret);
+	//初始化虚拟VO
+	ret = vo_pc.Initialize({10, 0, VO_OUTPUT_1080P60});
+	CHACK_ERROR(ret);
+	//配置虚拟VO开始通道0
+	ret = vo_pc.StartChn({{0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT}, 0, 0});
+	CHACK_ERROR(ret);
+	//初始化VENC
+	ret = venc_pc.Initialize({0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT, 60, 2, 8000, VENC_RC_MODE_H264CBR});
+	CHACK_ERROR(ret);
+	//绑定VI(4,8)与VPSS(0)
+	ret = MPPSystem::Bind<HI_ID_VIU, HI_ID_VPSS>(0, 8, 0, 0);
+	CHACK_ERROR(ret);
+	//绑定VPSS(0,1)与虚拟VO(10,0)
+	ret = MPPSystem::Bind<HI_ID_VPSS, HI_ID_VOU>(0, 1, 10, 0);
+	CHACK_ERROR(ret);
+	//绑定虚拟VO(10,0)与VENC(0,0)
+	ret = MPPSystem::Bind<HI_ID_VOU, HI_ID_GROUP>(10, 0, 0, 0);
+	CHACK_ERROR(ret);
+#endif
 
-	// 	if (msg_buf.Size() >= sizeof(msg))
-	// 	{
+	ret = PCIVComm::Instance()->Initialize();
+	CHACK_ERROR(ret);
 
-	// 		msg_buf.Get(reinterpret_cast<uint8_t *>(&msg), sizeof(msg));
-	// 		msg_buf.Consume(sizeof(msg));
+	pciv::Msg msg;
+	uint8_t tmp_buf[1024];
+	Buffer<allocator_1k> msg_buf;
 
-	// 		printf("msg.type:%d\n", msg.type);
+	while (g_Run)
+	{
+		ret = Recv(PCIVComm::Instance(), tmp_buf, sizeof(tmp_buf), msg_buf, msg);
+		CHACK_ERROR(ret);
 
-	// 		switch (msg.type)
-	// 		{
-	// 		case rs::pciv::Msg::Type::NOTIFY_MEMORY:
-	// 		{
-	// 			rs::pciv::MemoryInfo mem_info;
-	// 			memcpy(&mem_info, msg.data, sizeof(mem_info));
-	// 			venc.RemoveAllVideoSink();
-	// 			rs::PCIVTrans::Instance()->Close();
-	// 			rs::PCIVTrans::Instance()->Initialize(rs::PCIVComm::Instance(), mem_info);
-	// 			venc.AddVideoSink(rs::PCIVTrans::Instance());
-	// 			break;
-	// 		}
-	// 		}
-	// 	}
-	// }
+		if (!g_Run)
+			break;
 
-	while (1)
-		;
-	sleep(1000);
+		switch (msg.type)
+		{
+#if CHIP_TYPE == 1
+		case pciv::Msg::Type::CONF_ADV7842:
+		{
+			pciv::Adv7842Conf conf;
+			memcpy(&conf, msg.data, sizeof(conf));
+			Adv7842::Instance()->Close();
+			ret = Adv7842::Instance()->Initialize(static_cast<ADV7842_MODE>(conf.mode));
+			CHACK_ERROR(ret);
+			Adv7842::Instance()->SetVIFmtListener(&vi_pc);
+			break;
+		}
+		case pciv::Msg::Type::QUERY_ADV7842:
+		{
+			pciv::QueryVIFmt query;
+			memset(&query, 0, sizeof(query));
+			Adv7842::Instance()->GetInputFormat(query.fmt);
+			msg.type = pciv::Msg::Type::ACK;
+			memcpy(msg.data, &query, sizeof(query));
+			ret = PCIVComm::Instance()->Send(RS_PCIV_MASTER_ID, RS_PCIV_CMD_PORT, reinterpret_cast<uint8_t *>(&msg), sizeof(msg));
+			CHACK_ERROR(ret)
+			break;
+		}
+#endif
+		case pciv::Msg::Type::START_TRANS:
+		{
+			pciv::MemoryInfo mem_info;
+			memcpy(&mem_info, msg.data, sizeof(mem_info));
+			venc_pc.SetVideoSink(nullptr);
+			PCIVTrans::Instance()->Close();
+			ret = PCIVTrans::Instance()->Initialize(PCIVComm::Instance(), mem_info);
+			CHACK_ERROR(ret);
+			venc_pc.SetVideoSink(PCIVTrans::Instance());
+			break;
+		}
+		case pciv::Msg::Type::STOP_TRANS:
+		{
+			venc_pc.SetVideoSink(nullptr);
+			PCIVTrans::Instance()->Close();
+			break;
+		}
+		default:
+		{
+			log_e("unknow msg type:%d", msg.type);
+			break;
+		}
+		}
+	}
 
-	return 0;
+	Adv7842::Instance()->Close();
+	PCIVTrans::Instance()->Close();
+	PCIVComm::Instance()->Close();
+#if CHIP_TYPE == 1
+	MPPSystem::UnBind<HI_ID_VOU, HI_ID_GROUP>(10, 0, 0, 0);
+	MPPSystem::UnBind<HI_ID_VPSS, HI_ID_VOU>(0, 1, 10, 0);
+	MPPSystem::UnBind<HI_ID_VIU, HI_ID_VPSS>(0, 8, 0, 0);
+	venc_pc.Close();
+	vo_pc.Close();
+	vpss_pc.Close();
+#endif
+	MPPSystem::Instance()->Close();
+	return KSuccess;
 }

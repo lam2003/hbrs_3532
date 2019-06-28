@@ -9,6 +9,7 @@ const int VideoEncode::PacketBufferSize = 64 * 1024;
 
 VideoEncode::VideoEncode() : thread_(nullptr),
                              run_(false),
+                             video_sink_(nullptr),
                              init_(false)
 {
 }
@@ -146,67 +147,58 @@ int32_t VideoEncode::Initialize(const Params &params)
             tv.tv_usec = 500000; //500ms
 
             ret = select(fd + 1, &fds, NULL, NULL, &tv);
-            if (ret < 0)
+            if (ret <= 0)
+                continue;
+
+            memset(&stream, 0, sizeof(stream));
+            memset(&chn_stat, 0, sizeof(chn_stat));
+            ret = HI_MPI_VENC_Query(params_.chn, &chn_stat);
+            if (ret != KSuccess)
             {
-                log_e("select failed,%s", strerror(errno));
+                log_e("HI_MPI_VENC_Query failed with %#x", ret);
                 return;
             }
 
-            if (ret == 0)
-                continue;
-
-            if (FD_ISSET(fd, &fds))
+            if (!chn_stat.u32CurPacks)
             {
-                memset(&stream, 0, sizeof(stream));
-                memset(&chn_stat, 0, sizeof(chn_stat));
-                ret = HI_MPI_VENC_Query(params_.chn, &chn_stat);
-                if (ret != KSuccess)
+                log_e("current frame is null");
+                return;
+            }
+
+            if (sizeof(VENC_PACK_S) * chn_stat.u32CurPacks > packet_buf_size)
+            {
+                free(packet_buf);
+                packet_buf = malloc(sizeof(VENC_PACK_S) * chn_stat.u32CurPacks);
+                if (!packet_buf)
                 {
-                    log_e("HI_MPI_VENC_Query failed with %#x", ret);
+                    log_e("malloc packet buffer failed");
                     return;
                 }
+                packet_buf_size = sizeof(VENC_PACK_S) * chn_stat.u32CurPacks;
+            }
+            stream.pstPack = reinterpret_cast<VENC_PACK_S *>(packet_buf);
+            stream.u32PackCount = chn_stat.u32CurPacks;
 
-                if (!chn_stat.u32CurPacks)
+            ret = HI_MPI_VENC_GetStream(params_.chn, &stream, HI_TRUE);
+            if (ret != KSuccess)
+            {
+                log_e("HI_MPI_VENC_GetStream failed with %#x", ret);
+                return;
+            }
+            {
+                std::unique_lock<std::mutex> lock(video_sink_mux_);
+                if (video_sink_ != nullptr)
                 {
-                    log_e("current frame is null");
-                    return;
-                }
-
-                if (sizeof(VENC_PACK_S) * chn_stat.u32CurPacks > packet_buf_size)
-                {
-                    free(packet_buf);
-                    packet_buf = malloc(sizeof(VENC_PACK_S) * chn_stat.u32CurPacks);
-                    if (!packet_buf)
-                    {
-                        log_e("malloc packet buffer failed");
-                        return;
-                    }
-                    packet_buf_size = sizeof(VENC_PACK_S) * chn_stat.u32CurPacks;
-                }
-                stream.pstPack = reinterpret_cast<VENC_PACK_S *>(packet_buf);
-                stream.u32PackCount = chn_stat.u32CurPacks;
-
-                ret = HI_MPI_VENC_GetStream(params_.chn, &stream, HI_TRUE);
-                if (ret != KSuccess)
-                {
-                    log_e("HI_MPI_VENC_GetStream failed with %#x", ret);
-                    return;
-                }
-                {
-                    std::unique_lock<std::mutex> lock(video_sinks_mux_);
                     for (uint32_t i = 0; i < stream.u32PackCount; i++)
-                    {
-                        for (size_t j = 0; j < video_sinks_.size(); j++)
-                            video_sinks_[j]->OnFrame(stream, params_.chn);
-                    }
+                        video_sink_->OnFrame(stream, params_.chn);
                 }
+            }
 
-                ret = HI_MPI_VENC_ReleaseStream(params_.chn, &stream);
-                if (HI_SUCCESS != ret)
-                {
-                    log_e("HI_MPI_VENC_ReleaseStream failed with %#x", ret);
-                    return;
-                }
+            ret = HI_MPI_VENC_ReleaseStream(params_.chn, &stream);
+            if (HI_SUCCESS != ret)
+            {
+                log_e("HI_MPI_VENC_ReleaseStream failed with %#x", ret);
+                return;
             }
         }
         free(packet_buf);
@@ -231,19 +223,14 @@ void VideoEncode::Close()
     thread_->join();
     thread_.reset();
     thread_ = nullptr;
-    video_sinks_.clear();
+    video_sink_ = nullptr;
     init_ = false;
 }
 
-void VideoEncode::AddVideoSink(VideoSink<VENC_STREAM_S> *video_sink)
+void VideoEncode::SetVideoSink(VideoSink<VENC_STREAM_S> *video_sink)
 {
-    std::unique_lock<std::mutex> lock(video_sinks_mux_);
-    video_sinks_.push_back(video_sink);
+    std::unique_lock<std::mutex> lock(video_sink_mux_);
+    video_sink_ = video_sink;
 }
 
-void VideoEncode::RemoveAllVideoSink()
-{
-    std::unique_lock<std::mutex> lock(video_sinks_mux_);
-    video_sinks_.clear();
-}
 } // namespace rs

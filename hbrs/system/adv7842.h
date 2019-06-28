@@ -23,7 +23,7 @@ public:
 
     void Close();
 
-    int GetInputFormat(VideoInputFormat &fmt);
+    void GetInputFormat(VideoInputFormat &fmt);
 
     void SetVIFmtListener(VIFmtListener *listener);
 
