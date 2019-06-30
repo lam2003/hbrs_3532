@@ -1,9 +1,8 @@
 #pragma once
 
-//stl
-#include <vector>
 //self
-#include "common/global.h"
+#include "global.h"
+#include "common/video_define.h"
 
 namespace rs
 {
@@ -23,7 +22,7 @@ struct Msg
         ACK
     };
 
-    static const int32_t MaxDataLen = 32;
+    static const int32_t MaxDataLen = 64;
     int32_t type;
     uint8_t data[MaxDataLen];
 };
@@ -52,9 +51,14 @@ struct Adv7842Conf
     int mode;
 };
 
-struct QueryVIFmt
+struct Adv7842Query
 {
     VideoInputFormat fmt;
+};
+
+struct Tw6874Query
+{
+    VideoInputFormat fmts[3];
 };
 
 class Context

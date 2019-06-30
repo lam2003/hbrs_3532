@@ -1,8 +1,7 @@
 //self
 #include "system/pciv_trans.h"
-#include "common/utils.h"
-//stl
-#include <map>
+#include "common/err_code.h"
+#include "common/buffer.h"
 
 namespace rs
 {
@@ -15,6 +14,32 @@ static std::map<int, int> Slave3_VencChn2VdecChn = { //从片3 VENC通道与VDEC
     {0, 0},
     {1, 1},
     {2, 2}};
+
+static int Recv(Context *ctx, int remote_id, int port, uint8_t *tmp_buf, int32_t buf_len, Buffer<allocator_1k> &msg_buf, const std::atomic<bool> &run, Msg &msg)
+{
+    int ret;
+    do
+    {
+        ret = ctx->Recv(remote_id, port, tmp_buf, buf_len, 500000); //500ms
+        if (ret > 0)
+        {
+            if (!msg_buf.Append(tmp_buf, ret))
+            {
+                log_e("append data to msg_buf failed");
+                return KNotEnoughBuf;
+            }
+        }
+        else if (ret < 0)
+            return ret;
+    } while (run && msg_buf.Size() < sizeof(msg));
+
+    if (msg_buf.Size() >= sizeof(msg))
+    {
+        msg_buf.Get(reinterpret_cast<uint8_t *>(&msg), sizeof(msg));
+        msg_buf.Consume(sizeof(msg));
+    }
+    return KSuccess;
+}
 
 PCIVTrans::~PCIVTrans()
 {
@@ -91,7 +116,7 @@ int32_t PCIVTrans::Initialize(Context *ctx, const MemoryInfo &mem_info)
         Buffer<allocator_1k> msg_buf;
         while (run_)
         {
-            ret = Utils::Recv(ctx_, RS_PCIV_MASTER_ID, RS_PCIV_TRANS_WRITE_PORT, tmp_buf, sizeof(tmp_buf), msg_buf, run_, msg);
+            ret = Recv(ctx_, RS_PCIV_MASTER_ID, RS_PCIV_TRANS_WRITE_PORT, tmp_buf, sizeof(tmp_buf), msg_buf, run_, msg);
             if (ret != KSuccess)
                 return;
 
@@ -233,7 +258,7 @@ void PCIVTrans::OnFrame(const VENC_STREAM_S &st, int chn)
     st_info.pts = st.pstPack[0].u64PTS;
 #if CHIP_TYPE == 1
     st_info.vdec_chn = Slave1_VencChn2VdecChn[chn];
-#elif CHIP_TYPE == 3
+#else
     st_info.vdec_chn = Slave3_VencChn2VdecChn[chn];
 #endif
     memcpy(buf_.vir_addr + buf_.len, &st_info, sizeof(st_info));

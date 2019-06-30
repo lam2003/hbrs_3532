@@ -1,5 +1,8 @@
 #pragma once
 
+//self
+#include "global.h"
+
 namespace rs
 {
 template <unsigned BlockSize>

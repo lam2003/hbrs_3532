@@ -1,5 +1,6 @@
 //self
 #include "system/adv7842.h"
+#include "common/err_code.h"
 
 namespace rs
 {

@@ -1,5 +1,6 @@
 //self
 #include "system/venc.h"
+#include "common/err_code.h"
 
 namespace rs
 {

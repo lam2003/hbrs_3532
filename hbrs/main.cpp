@@ -1,5 +1,4 @@
 
-
 #include "system/mpp.h"
 #include "system/adv7842.h"
 #include "system/pciv_comm.h"
@@ -8,7 +7,7 @@
 #include "system/vo.h"
 #include "system/vpss.h"
 #include "system/venc.h"
-#include "common/utils.h"
+#include "common/buffer.h"
 
 using namespace rs;
 
@@ -27,6 +26,34 @@ static void SignalHandler(int signo)
 	{
 		g_Run = false;
 	}
+}
+
+static int Recv(pciv::Context *ctx, int remote_id, int port, uint8_t *tmp_buf, int32_t buf_len, Buffer<allocator_1k> &msg_buf, bool &run, pciv::Msg &msg)
+{
+	int ret;
+	do
+	{
+		ret = ctx->Recv(remote_id, port, tmp_buf, buf_len, 500000); //500ms
+		if (ret > 0)
+		{
+			if (!msg_buf.Append(tmp_buf, ret))
+			{
+				log_e("append data to msg buf failed");
+				return KNotEnoughBuf;
+			}
+		}
+		else if (ret < 0)
+			return ret;
+
+	} while (run && msg_buf.Size() < sizeof(msg));
+
+	if (msg_buf.Size() >= sizeof(msg))
+	{
+		msg_buf.Get(reinterpret_cast<uint8_t *>(&msg), sizeof(msg));
+		msg_buf.Consume(sizeof(msg));
+	}
+
+	return KSuccess;
 }
 
 int32_t main(int32_t argc, char **argv)
@@ -68,6 +95,8 @@ int32_t main(int32_t argc, char **argv)
 	//绑定虚拟VO(10,0)与VENC(0,0)
 	ret = MPPSystem::Bind<HI_ID_VOU, HI_ID_GROUP>(10, 0, 0, 0);
 	CHACK_ERROR(ret);
+#else
+
 #endif
 
 	ret = PCIVComm::Instance()->Initialize();
@@ -79,7 +108,7 @@ int32_t main(int32_t argc, char **argv)
 
 	while (g_Run)
 	{
-		ret = Utils::Recv(PCIVComm::Instance(), RS_PCIV_MASTER_ID, RS_PCIV_CMD_PORT, tmp_buf, sizeof(tmp_buf), msg_buf, g_Run, msg);
+		ret = Recv(PCIVComm::Instance(), RS_PCIV_MASTER_ID, RS_PCIV_CMD_PORT, tmp_buf, sizeof(tmp_buf), msg_buf, g_Run, msg);
 		CHACK_ERROR(ret);
 
 		if (!g_Run)
@@ -100,7 +129,7 @@ int32_t main(int32_t argc, char **argv)
 		}
 		case pciv::Msg::Type::QUERY_ADV7842:
 		{
-			pciv::QueryVIFmt query;
+			pciv::Adv7842Query query;
 			memset(&query, 0, sizeof(query));
 			Adv7842::Instance()->GetInputFormat(query.fmt);
 
@@ -110,7 +139,6 @@ int32_t main(int32_t argc, char **argv)
 			CHACK_ERROR(ret)
 			break;
 		}
-#endif
 		case pciv::Msg::Type::START_TRANS:
 		{
 			pciv::MemoryInfo mem_info;
@@ -128,6 +156,7 @@ int32_t main(int32_t argc, char **argv)
 			PCIVTrans::Instance()->Close();
 			break;
 		}
+#endif
 		default:
 		{
 			log_e("unknow msg type:%d", msg.type);
@@ -136,7 +165,6 @@ int32_t main(int32_t argc, char **argv)
 		}
 	}
 
-	Adv7842::Instance()->Close();
 	PCIVTrans::Instance()->Close();
 	PCIVComm::Instance()->Close();
 #if CHIP_TYPE == 1
@@ -146,6 +174,7 @@ int32_t main(int32_t argc, char **argv)
 	venc_pc.Close();
 	vo_pc.Close();
 	vpss_pc.Close();
+	Adv7842::Instance()->Close();
 #endif
 	MPPSystem::Instance()->Close();
 	return KSuccess;

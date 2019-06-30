@@ -1,7 +1,7 @@
 #pragma once
 
 //self
-#include "common/global.h"
+#include "global.h"
 
 namespace rs
 {

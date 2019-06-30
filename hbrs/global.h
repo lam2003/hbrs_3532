@@ -26,10 +26,6 @@
 #include <mpi_vi.h>
 #include <mpi_vo.h>
 #include <mpi_vpss.h>
-//stdlib
-#include <string.h>
-#include <stdlib.h>
-#include <stdio.h>
 //system
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -37,11 +33,23 @@
 #include <signal.h>
 #include <fcntl.h>
 #include <unistd.h>
+//stl
+#include <vector>
+#include <map>
+#include <mutex>
+#include <atomic>
+#include <thread>
+#include <memory>
+#include <chrono>
+#include <system_error>
+//stdlib
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+//drive
+#include <adv7842.h>
 //logger
 #include <elog.h>
-//self
-#include "common/video_define.h"
-#include "common/err_code.h"
 
 #define RS_ALIGN_WIDTH 64                               //图像对齐大小
 #define RS_PIXEL_FORMAT PIXEL_FORMAT_YUV_SEMIPLANAR_420 //图像像素格式

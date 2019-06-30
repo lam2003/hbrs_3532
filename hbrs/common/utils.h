@@ -1,11 +1,7 @@
 #pragma once
-//stl
-#include <chrono>
-#include <atomic>
+
 //self
-#include "common/global.h"
-#include "common/buffer.h"
-#include "system/pciv_comm.h"
+#include "global.h"
 
 namespace rs
 {
@@ -188,60 +184,6 @@ public:
         auto now = steady_clock::now();
         auto now_since_epoch = now.time_since_epoch();
         return duration_cast<milliseconds>(now_since_epoch).count();
-    }
-
-    static int Recv(pciv::Context *ctx, int remote_id, int port, uint8_t *tmp_buf, int32_t buf_len, Buffer<allocator_1k> &msg_buf, bool &run, pciv::Msg &msg)
-    {
-        int ret;
-        do
-        {
-            ret = ctx->Recv(remote_id, port, tmp_buf, buf_len, 500000); //500ms
-            if (ret > 0)
-            {
-                if (!msg_buf.Append(tmp_buf, ret))
-                {
-                    log_e("append data to msg buf failed");
-                    return KNotEnoughBuf;
-                }
-            }
-            else if (ret < 0)
-                return ret;
-
-        } while (run && msg_buf.Size() < sizeof(msg));
-
-        if (msg_buf.Size() >= sizeof(msg))
-        {
-            msg_buf.Get(reinterpret_cast<uint8_t *>(&msg), sizeof(msg));
-            msg_buf.Consume(sizeof(msg));
-        }
-
-        return KSuccess;
-    }
-
-    static int Recv(pciv::Context *ctx, int remote_id, int port, uint8_t *tmp_buf, int32_t buf_len, Buffer<allocator_1k> &msg_buf, const std::atomic<bool> &run, pciv::Msg &msg)
-    {
-        int ret;
-        do
-        {
-            ret = ctx->Recv(remote_id, port, tmp_buf, buf_len, 500000); //500ms
-            if (ret > 0)
-            {
-                if (!msg_buf.Append(tmp_buf, ret))
-                {
-                    log_e("append data to msg_buf failed");
-                    return KNotEnoughBuf;
-                }
-            }
-            else if (ret < 0)
-                return ret;
-        } while (run && msg_buf.Size() < sizeof(msg));
-
-        if (msg_buf.Size() >= sizeof(msg))
-        {
-            msg_buf.Get(reinterpret_cast<uint8_t *>(&msg), sizeof(msg));
-            msg_buf.Consume(sizeof(msg));
-        }
-        return KSuccess;
     }
 };
 } // namespace rs

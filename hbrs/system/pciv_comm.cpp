@@ -1,5 +1,6 @@
 //self
 #include "system/pciv_comm.h"
+#include "common/err_code.h"
 
 namespace rs
 {

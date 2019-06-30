@@ -1,6 +1,7 @@
 //self
 #include "system/vpss.h"
 #include "common/utils.h"
+#include "common/err_code.h"
 
 namespace rs
 {

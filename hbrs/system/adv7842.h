@@ -1,13 +1,8 @@
 #pragma once
-//stl
-#include <memory>
-#include <thread>
-#include <atomic>
-#include <mutex>
-//driver
-#include <adv7842.h>
+
 //self
-#include "common/global.h"
+#include "global.h"
+#include "common/video_define.h"
 
 namespace rs
 {

@@ -15,7 +15,7 @@ void MPPSystem::Close()
 {
     if (!init_)
         return;
-        
+
     int ret;
 
     ret = HI_MPI_SYS_Exit();
