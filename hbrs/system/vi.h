@@ -1,3 +1,4 @@
+//self
 #include "common/global.h"
 
 #pragma once

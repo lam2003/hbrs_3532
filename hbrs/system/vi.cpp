@@ -1,3 +1,4 @@
+//self
 #include "system/vi.h"
 #include "common/utils.h"
 
