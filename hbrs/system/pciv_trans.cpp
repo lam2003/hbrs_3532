@@ -1,6 +1,6 @@
 //self
 #include "system/pciv_trans.h"
-#include "common/buffer.h"
+#include "common/utils.h"
 //stl
 #include <map>
 
@@ -33,32 +33,6 @@ PCIVTrans *PCIVTrans::Instance()
 {
     static PCIVTrans *instance = new PCIVTrans;
     return instance;
-}
-
-static int Recv(Context *ctx, int port, uint8_t *tmp_buf, int32_t buf_len, rs::Buffer<allocator_1k> &msg_buf, const std::atomic<bool> &run, Msg &msg)
-{
-    int ret;
-    do
-    {
-        ret = ctx->Recv(RS_PCIV_MASTER_ID, port, tmp_buf, buf_len, 500000); //500ms
-        if (ret > 0)
-        {
-            if (!msg_buf.Append(tmp_buf, ret))
-            {
-                log_e("append data to msg_buf failed");
-                return KNotEnoughBuf;
-            }
-        }
-        else if (ret < 0)
-            return ret;
-    } while (run && msg_buf.Size() < sizeof(msg));
-
-    if (msg_buf.Size() >= sizeof(msg))
-    {
-        msg_buf.Get(reinterpret_cast<uint8_t *>(&msg), sizeof(msg));
-        msg_buf.Consume(sizeof(msg));
-    }
-    return KSuccess;
 }
 
 int32_t PCIVTrans::Initialize(Context *ctx, const MemoryInfo &mem_info)
@@ -110,24 +84,30 @@ int32_t PCIVTrans::Initialize(Context *ctx, const MemoryInfo &mem_info)
         }
     }));
     recv_msg_thread_ = std::unique_ptr<std::thread>(new std::thread([this]() {
+        int ret;
+
         Msg msg;
         uint8_t tmp_buf[1024];
-        rs::Buffer<allocator_1k> msg_buf;
+        Buffer<allocator_1k> msg_buf;
         while (run_)
         {
-            if (Recv(ctx_, RS_PCIV_TRANS_WRITE_PORT, tmp_buf, sizeof(tmp_buf), msg_buf, run_, msg) == KSuccess && run_)
+            ret = Utils::Recv(ctx_, RS_PCIV_MASTER_ID, RS_PCIV_TRANS_WRITE_PORT, tmp_buf, sizeof(tmp_buf), msg_buf, run_, msg);
+            if (ret != KSuccess)
+                return;
+
+            if (!run_)
+                break;
+
+            if (msg.type == Msg::Type::READ_DONE)
             {
-                if (msg.type == Msg::Type::READ_DONE)
-                {
-                    PosInfo *tmp = reinterpret_cast<PosInfo *>(msg.data);
-                    std::unique_lock<std::mutex> lock(mux_);
-                    pos_info_.start_pos = tmp->end_pos;
-                }
-                else
-                {
-                    log_e("unknow msg type %d", msg.type);
-                    continue;
-                }
+                PosInfo *tmp = reinterpret_cast<PosInfo *>(msg.data);
+                std::unique_lock<std::mutex> lock(mux_);
+                pos_info_.start_pos = tmp->end_pos;
+            }
+            else
+            {
+                log_e("unknow msg type %d", msg.type);
+                continue;
             }
         }
     }));
@@ -174,7 +154,7 @@ int32_t PCIVTrans::QueryWritePos(const PosInfo &pos_info, int len)
     return -1;
 }
 
-int32_t PCIVTrans::TransportData(Context *ctx, PosInfo &pos_info, pciv::Buffer &buf, const MemoryInfo &mem_info)
+int32_t PCIVTrans::TransportData(Context *ctx, PosInfo &pos_info, PCIVBuffer &buf, const MemoryInfo &mem_info)
 {
     int32_t ret;
 

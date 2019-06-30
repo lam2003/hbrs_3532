@@ -75,7 +75,7 @@ int Adv7842::Initialize(ADV7842_CMODE_E mode)
                     listener_->OnChange(fmt_);
             }
 
-            usleep(1000000); //1000ms
+            usleep(500000); //500ms
         }
         close(fd);
     }));

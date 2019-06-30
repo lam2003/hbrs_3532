@@ -161,17 +161,6 @@ int32_t PCIVComm::EnumChip()
         return KSystemError;
     }
 
-    attr.target_id = 0;
-    attr.port = 0;
-    attr.priority = 0;
-
-    ret = ioctl(fd, HI_MCC_IOC_CONNECT, &attr);
-    if (ret < 0)
-    {
-        log_e("ioctl HI_MCC_IOC_CONNECT failed,%s", strerror(errno));
-        return KSystemError;
-    }
-
     close(fd);
     return KSuccess;
 }
@@ -226,6 +215,12 @@ int32_t PCIVComm::Recv(int32_t remote_id, int32_t port, uint8_t *data, int32_t l
         return 0;
 
     ret = read(fd, data, len);
+    if (ret < 0)
+    {
+        log_e("read failed,%s", strerror(errno));
+        return KSystemError;
+    }
+    
     return ret;
 }
 

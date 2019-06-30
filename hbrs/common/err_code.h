@@ -11,7 +11,8 @@ enum err_code
     KUnInitialized = -3,
     KParamsError = -4,
     KSystemError = -5,
-    KNotEnoughBuf = -6
+    KNotEnoughBuf = -6,
+    KTimeout = -7
 };
 
 class RSErrorCategory : public std::error_category
@@ -38,6 +39,8 @@ class RSErrorCategory : public std::error_category
             return "system error";
         case err_code::KNotEnoughBuf:
             return "not enough buffer";
+        case err_code::KTimeout:
+            return "timeout";
         default:
             return "unknow error";
         }

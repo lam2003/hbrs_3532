@@ -8,7 +8,7 @@
 #include "system/vo.h"
 #include "system/vpss.h"
 #include "system/venc.h"
-#include "common/buffer.h"
+#include "common/utils.h"
 
 using namespace rs;
 
@@ -20,32 +20,6 @@ using namespace rs;
 	}
 
 static bool g_Run = true;
-
-static int Recv(pciv::Context *ctx, uint8_t *tmp_buf, int32_t buf_len, Buffer<allocator_1k> &msg_buf, pciv::Msg &msg)
-{
-	int ret;
-	do
-	{
-		ret = ctx->Recv(RS_PCIV_MASTER_ID, RS_PCIV_CMD_PORT, tmp_buf, buf_len, 500000); //500ms
-		if (ret > 0)
-		{
-			if (!msg_buf.Append(tmp_buf, ret))
-			{
-				log_e("append data to msg_buf failed");
-				return KNotEnoughBuf;
-			}
-		}
-		else if (ret < 0)
-			return ret;
-	} while (g_Run && msg_buf.Size() < sizeof(msg));
-
-	if (msg_buf.Size() >= sizeof(msg))
-	{
-		msg_buf.Get(reinterpret_cast<uint8_t *>(&msg), sizeof(msg));
-		msg_buf.Consume(sizeof(msg));
-	}
-	return KSuccess;
-}
 
 static void SignalHandler(int signo)
 {
@@ -83,7 +57,7 @@ int32_t main(int32_t argc, char **argv)
 	ret = vo_pc.StartChn({{0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT}, 0, 0});
 	CHACK_ERROR(ret);
 	//初始化VENC
-	ret = venc_pc.Initialize({0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT, 60, 2, 8000, VENC_RC_MODE_H264CBR});
+	ret = venc_pc.Initialize({0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT, 60, 0, 20000, VENC_RC_MODE_H264CBR});
 	CHACK_ERROR(ret);
 	//绑定VI(4,8)与VPSS(0)
 	ret = MPPSystem::Bind<HI_ID_VIU, HI_ID_VPSS>(0, 8, 0, 0);
@@ -105,7 +79,7 @@ int32_t main(int32_t argc, char **argv)
 
 	while (g_Run)
 	{
-		ret = Recv(PCIVComm::Instance(), tmp_buf, sizeof(tmp_buf), msg_buf, msg);
+		ret = Utils::Recv(PCIVComm::Instance(), RS_PCIV_MASTER_ID, RS_PCIV_CMD_PORT, tmp_buf, sizeof(tmp_buf), msg_buf, g_Run, msg);
 		CHACK_ERROR(ret);
 
 		if (!g_Run)
@@ -129,6 +103,7 @@ int32_t main(int32_t argc, char **argv)
 			pciv::QueryVIFmt query;
 			memset(&query, 0, sizeof(query));
 			Adv7842::Instance()->GetInputFormat(query.fmt);
+
 			msg.type = pciv::Msg::Type::ACK;
 			memcpy(msg.data, &query, sizeof(query));
 			ret = PCIVComm::Instance()->Send(RS_PCIV_MASTER_ID, RS_PCIV_CMD_PORT, reinterpret_cast<uint8_t *>(&msg), sizeof(msg));

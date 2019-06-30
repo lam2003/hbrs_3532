@@ -24,9 +24,7 @@ struct Msg
     };
 
     static const int32_t MaxDataLen = 32;
-
     int32_t type;
-
     uint8_t data[MaxDataLen];
 };
 

@@ -10,16 +10,15 @@
 
 namespace rs
 {
-namespace pciv
-{
-struct Buffer
+
+struct PCIVBuffer
 {
     uint32_t phy_addr;
     uint8_t *vir_addr;
     int len;
     VB_BLK blk;
 };
-} // namespace pciv
+
 class PCIVTrans : public VideoSink<VENC_STREAM_S>
 {
 public:
@@ -34,7 +33,7 @@ public:
     void OnFrame(const VENC_STREAM_S &st, int chn) override;
 
 protected:
-    static int32_t TransportData(pciv::Context *ctx, pciv::PosInfo &pos_info, pciv::Buffer &buf, const pciv::MemoryInfo &mem_info);
+    static int32_t TransportData(pciv::Context *ctx, pciv::PosInfo &pos_info, PCIVBuffer &buf, const pciv::MemoryInfo &mem_info);
 
     static int32_t QueryWritePos(const pciv::PosInfo &pos_info, int len);
 
@@ -43,7 +42,7 @@ protected:
 private:
     pciv::MemoryInfo mem_info_;
     pciv::PosInfo pos_info_;
-    pciv::Buffer buf_;
+    PCIVBuffer buf_;
     std::mutex mux_;
     std::atomic<bool> run_;
     std::unique_ptr<std::thread> trans_thread_;
