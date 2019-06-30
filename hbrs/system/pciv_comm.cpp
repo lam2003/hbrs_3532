@@ -91,6 +91,7 @@ int32_t PCIVComm::WaitConn(int32_t remote_id)
     }
 
     hi_mcc_handle_attr attr;
+    memset(&attr, 0, sizeof(attr));
     attr.target_id = remote_id;
     attr.port = 1000;
     attr.priority = 0;
@@ -124,6 +125,7 @@ int32_t PCIVComm::OpenPort(int32_t remote_id, int32_t port, std::vector<std::vec
     }
 
     hi_mcc_handle_attr attr;
+    memset(&attr, 0, sizeof(attr));
     attr.target_id = remote_id;
     attr.port = port + MsgPortBase;
     attr.priority = 2;
@@ -159,6 +161,17 @@ int32_t PCIVComm::EnumChip()
     if (ret < 0)
     {
         log_e("ioctl HI_MCC_IOC_ATTR_INIT failed,%s", strerror(errno));
+        return KSystemError;
+    }
+
+    attr.target_id = RS_PCIV_MASTER_ID;
+    attr.port = 0;
+    attr.priority = 0;
+
+    ret = ioctl(fd, HI_MCC_IOC_CONNECT, &attr);
+    if (ret < 0)
+    {
+        log_e("ioctl HI_MCC_IOC_CONNECT failed,%s", strerror(errno));
         return KSystemError;
     }
 
@@ -221,7 +234,7 @@ int32_t PCIVComm::Recv(int32_t remote_id, int32_t port, uint8_t *data, int32_t l
         log_e("read failed,%s", strerror(errno));
         return KSystemError;
     }
-    
+
     return ret;
 }
 

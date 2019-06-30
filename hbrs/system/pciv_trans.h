@@ -1,7 +1,6 @@
 #pragma once
 
 //self
-#include "global.h"
 #include "system/pciv_comm.h"
 
 namespace rs

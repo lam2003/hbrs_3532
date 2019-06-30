@@ -1,7 +1,6 @@
 #pragma once
 
 //self
-#include "global.h"
 #include "common/err_code.h"
 
 namespace rs
