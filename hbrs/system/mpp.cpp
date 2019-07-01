@@ -103,7 +103,7 @@ int32_t MPPSystem::ConfigVB(int blk_num)
 {
     int32_t ret;
 
-    uint32_t blk_size = (CEILING_2_POWER(RS_MAX_WIDTH, RS_ALIGN_WIDTH) * CEILING_2_POWER(RS_MAX_HEIGHT, RS_ALIGN_WIDTH) * 3) >> 1;
+    uint32_t blk_size = (((RS_MAX_WIDTH + (RS_MAX_WIDTH % RS_ALIGN_WIDTH)) * (RS_MAX_HEIGHT + (RS_MAX_HEIGHT % RS_ALIGN_WIDTH))) * 3) / 2;
 
     VB_CONF_S conf;
     memset(&conf, 0, sizeof(conf));

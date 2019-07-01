@@ -68,3 +68,10 @@
         log_e("%s", #cond); \
         exit(1);            \
     }
+
+static std::map<int, int> Slave1_VencChn2VdecChn = { //从片1 VENC通道与VDEC通道映射关系
+    {0, 3}};
+static std::map<int, int> Slave3_VencChn2VdecChn = { //从片3 VENC通道与VDEC通道映射关系
+    {0, 0},
+    {1, 1},
+    {2, 2}};

@@ -8,13 +8,6 @@ namespace rs
 
 using namespace pciv;
 
-static std::map<int, int> Slave1_VencChn2VdecChn = { //从片1 VENC通道与VDEC通道映射关系
-    {0, 3}};
-static std::map<int, int> Slave3_VencChn2VdecChn = { //从片3 VENC通道与VDEC通道映射关系
-    {0, 0},
-    {1, 1},
-    {2, 2}};
-
 static int Recv(Context *ctx, int remote_id, int port, uint8_t *tmp_buf, int32_t buf_len, Buffer<allocator_1k> &msg_buf, const std::atomic<bool> &run, Msg &msg)
 {
     int ret;
@@ -159,6 +152,8 @@ void PCIVTrans::Close()
     HI_MPI_SYS_Munmap(buf_.vir_addr, RS_PCIV_WINDOW_SIZE / 2);
     HI_MPI_VB_ReleaseBlock(buf_.blk);
 
+    ctx_ = nullptr;
+    
     init_ = false;
 }
 

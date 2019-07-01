@@ -1,25 +1,33 @@
 #pragma once
 
 //self
-#include "system/pciv_comm.h"
+#include "global.h"
+#include "common/video_define.h"
 
 namespace rs
 {
 class Tw6874
 {
 public:
-    static Tw6874 *Instance();
+    explicit Tw6874();
 
     virtual ~Tw6874();
 
     int Initialize();
 
-    void CLose();
+    void Close();
 
-    void UpdateQuery();
-protected:
-    explicit Tw6874();
+    void UpdateVIFmt(const VideoInputFormat &fmt);
+
+    void SetVIFmtListener(VIFmtListener *listener);
 
 private:
+    std::mutex mux_;
+    VideoInputFormat now_fmt_;
+    VideoInputFormat run_fmt_;
+    VIFmtListener *listener_;
+    std::atomic<bool> run_;
+    std::unique_ptr<std::thread> thread_;
+    bool init_;
 };
 } // namespace rs

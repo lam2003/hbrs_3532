@@ -12,6 +12,7 @@ Adv7842::~Adv7842()
 
 Adv7842::Adv7842() : thread_(nullptr),
                      run_(false),
+                     listener_(nullptr),
                      init_(false)
 {
 }

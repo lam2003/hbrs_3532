@@ -19,6 +19,7 @@ struct Msg
         WRITE_DONE,
         CONF_ADV7842,
         QUERY_ADV7842,
+        QUERY_TW6874,
         ACK
     };
 
