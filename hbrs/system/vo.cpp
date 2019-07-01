@@ -117,8 +117,6 @@ int32_t VideoOutput::StartHDMI(HI_HDMI_ID_E dev, VO_INTF_SYNC_E intf_sync)
 
 int32_t VideoOutput::StartDevLayer(int32_t dev, VO_INTF_TYPE_E intf_type, VO_INTF_SYNC_E intf_sync)
 {
-    log_d("vo[%d] intf_type:%d intf_sync:%d", dev, intf_type, intf_sync);
-
     int32_t ret;
 
     VO_PUB_ATTR_S pub_attr;

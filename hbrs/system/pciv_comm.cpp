@@ -106,8 +106,6 @@ int32_t PCIVComm::WaitConn(int32_t remote_id)
     while (ioctl(fd, HI_MCC_IOC_CHECK, &attr))
         usleep(10000); //10ms
 
-    log_d("chip[%d] connected", remote_id);
-
     close(fd);
     return KSuccess;
 }
@@ -137,7 +135,6 @@ int32_t PCIVComm::OpenPort(int32_t remote_id, int32_t port, std::vector<std::vec
         return KSystemError;
     }
 
-    log_d("chip[%d] port[%d] fd[%d]", remote_id, port + MsgPortBase, fd);
     remote_fds[remote_id][port] = fd;
     return KSuccess;
 }

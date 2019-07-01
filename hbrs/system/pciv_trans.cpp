@@ -243,10 +243,7 @@ void PCIVTrans::OnFrame(const VENC_STREAM_S &st, int chn)
     std::unique_lock<std::mutex> lock(mux_);
     uint32_t free_len = (RS_PCIV_WINDOW_SIZE / 2) - buf_.len;
     if (free_len < sizeof(StreamInfo) + align_len)
-    {
-        log_d("local buffer not enough");
         return;
-    }
 
     st_info.align_len = align_len;
     st_info.len = len;
