@@ -12,7 +12,7 @@
 
 using namespace rs;
 
-#define CHACK_ERROR(a)                                                                  \
+#define CHECK_ERROR(a)                                                                  \
 	if (KSuccess != a)                                                                  \
 	{                                                                                   \
 		log_e("error:%s", make_error_code(static_cast<err_code>(a)).message().c_str()); \
@@ -64,7 +64,7 @@ int32_t main(int32_t argc, char **argv)
 	signal(SIGINT, SignalHandler);
 
 	ret = MPPSystem::Instance()->Initialize(RS_MEM_BLK_NUM);
-	CHACK_ERROR(ret);
+	CHECK_ERROR(ret);
 
 #if CHIP_TYPE == 1
 	VIHelper vi_pc(4, 8);
@@ -74,28 +74,28 @@ int32_t main(int32_t argc, char **argv)
 
 	//初始化VPSS
 	ret = vpss_pc.Initialize({0});
-	CHACK_ERROR(ret);
+	CHECK_ERROR(ret);
 	//配置VPSS通道1
 	ret = vpss_pc.SetChnSize(1, {RS_MAX_WIDTH, RS_MAX_HEIGHT});
-	CHACK_ERROR(ret);
+	CHECK_ERROR(ret);
 	//初始化虚拟VO
 	ret = vo_pc.Initialize({10, 0, VO_OUTPUT_1080P60});
-	CHACK_ERROR(ret);
+	CHECK_ERROR(ret);
 	//配置虚拟VO开始通道0
 	ret = vo_pc.StartChn({{0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT}, 0, 0});
-	CHACK_ERROR(ret);
+	CHECK_ERROR(ret);
 	//初始化VENC
 	ret = venc_pc.Initialize({0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT, 60, 0, 20000, VENC_RC_MODE_H264CBR});
-	CHACK_ERROR(ret);
+	CHECK_ERROR(ret);
 	//绑定VI与VPSS
 	ret = MPPSystem::Bind<HI_ID_VIU, HI_ID_VPSS>(0, 8, 0, 0);
-	CHACK_ERROR(ret);
+	CHECK_ERROR(ret);
 	//绑定VPSS与虚拟VO
 	ret = MPPSystem::Bind<HI_ID_VPSS, HI_ID_VOU>(0, 1, 10, 0);
-	CHACK_ERROR(ret);
+	CHECK_ERROR(ret);
 	//绑定虚拟VO与VENC
 	ret = MPPSystem::Bind<HI_ID_VOU, HI_ID_GROUP>(10, 0, 0, 0);
-	CHACK_ERROR(ret);
+	CHECK_ERROR(ret);
 #else
 	Tw6874 tw6874_tea_full;
 	Tw6874 tw6874_stu_full;
@@ -114,11 +114,11 @@ int32_t main(int32_t argc, char **argv)
 	VideoEncode venc_black_board;
 	//初始化tw6874
 	ret = tw6874_tea_full.Initialize();
-	CHACK_ERROR(ret);
+	CHECK_ERROR(ret);
 	ret = tw6874_stu_full.Initialize();
-	CHACK_ERROR(ret);
+	CHECK_ERROR(ret);
 	ret = tw6874_black_board.Initialize();
-	CHACK_ERROR(ret);
+	CHECK_ERROR(ret);
 
 	//关联VIHelper与tw6874
 	tw6874_tea_full.SetVIFmtListener(&vi_tea_full);
@@ -126,65 +126,65 @@ int32_t main(int32_t argc, char **argv)
 	tw6874_black_board.SetVIFmtListener(&vi_black_board);
 	//初始化VPSS
 	ret = vpss_tea_full.Initialize({0});
-	CHACK_ERROR(ret);
+	CHECK_ERROR(ret);
 	ret = vpss_stu_full.Initialize({1});
-	CHACK_ERROR(ret);
+	CHECK_ERROR(ret);
 	ret = vpss_black_board.Initialize({2});
-	CHACK_ERROR(ret);
+	CHECK_ERROR(ret);
 	//配置VPSS通道1
 	ret = vpss_tea_full.SetChnSize(1, {RS_MAX_WIDTH, RS_MAX_HEIGHT});
-	CHACK_ERROR(ret);
+	CHECK_ERROR(ret);
 	ret = vpss_stu_full.SetChnSize(1, {RS_MAX_WIDTH, RS_MAX_HEIGHT});
-	CHACK_ERROR(ret);
+	CHECK_ERROR(ret);
 	ret = vpss_black_board.SetChnSize(1, {RS_MAX_WIDTH, RS_MAX_HEIGHT});
-	CHACK_ERROR(ret);
+	CHECK_ERROR(ret);
 	//初始化虚拟VO
 	ret = vo_tea_full.Initialize({10, 0, VO_OUTPUT_1080P60});
-	CHACK_ERROR(ret);
+	CHECK_ERROR(ret);
 	ret = vo_stu_full.Initialize({11, 0, VO_OUTPUT_1080P60});
-	CHACK_ERROR(ret);
+	CHECK_ERROR(ret);
 	ret = vo_black_board.Initialize({12, 0, VO_OUTPUT_1080P60});
-	CHACK_ERROR(ret);
+	CHECK_ERROR(ret);
 	//配置虚拟VO开始通道0
 	ret = vo_tea_full.StartChn({{0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT}, 0, 0});
-	CHACK_ERROR(ret);
+	CHECK_ERROR(ret);
 	ret = vo_stu_full.StartChn({{0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT}, 0, 0});
-	CHACK_ERROR(ret);
+	CHECK_ERROR(ret);
 	ret = vo_black_board.StartChn({{0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT}, 0, 0});
-	CHACK_ERROR(ret);
+	CHECK_ERROR(ret);
 	//初始化VENC
 	ret = venc_tea_full.Initialize({0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT, 60, 0, 20000, VENC_RC_MODE_H264CBR});
-	CHACK_ERROR(ret);
+	CHECK_ERROR(ret);
 	ret = venc_stu_full.Initialize({1, 1, RS_MAX_WIDTH, RS_MAX_HEIGHT, 60, 0, 20000, VENC_RC_MODE_H264CBR});
-	CHACK_ERROR(ret);
+	CHECK_ERROR(ret);
 	ret = venc_black_board.Initialize({2, 2, RS_MAX_WIDTH, RS_MAX_HEIGHT, 60, 0, 20000, VENC_RC_MODE_H264CBR});
-	CHACK_ERROR(ret);
+	CHECK_ERROR(ret);
 	//绑定VI与VPSS
 	ret = MPPSystem::Bind<HI_ID_VIU, HI_ID_VPSS>(0, 12, 0, 0);
-	CHACK_ERROR(ret);
+	CHECK_ERROR(ret);
 	ret = MPPSystem::Bind<HI_ID_VIU, HI_ID_VPSS>(0, 8, 1, 0);
-	CHACK_ERROR(ret);
+	CHECK_ERROR(ret);
 	ret = MPPSystem::Bind<HI_ID_VIU, HI_ID_VPSS>(0, 4, 2, 0);
-	CHACK_ERROR(ret);
+	CHECK_ERROR(ret);
 	//绑定VPSS与虚拟VO
 	ret = MPPSystem::Bind<HI_ID_VPSS, HI_ID_VOU>(0, 1, 10, 0);
-	CHACK_ERROR(ret);
+	CHECK_ERROR(ret);
 	ret = MPPSystem::Bind<HI_ID_VPSS, HI_ID_VOU>(1, 1, 11, 0);
-	CHACK_ERROR(ret);
+	CHECK_ERROR(ret);
 	ret = MPPSystem::Bind<HI_ID_VPSS, HI_ID_VOU>(2, 1, 12, 0);
-	CHACK_ERROR(ret);
+	CHECK_ERROR(ret);
 	//绑定虚拟VO与VENC
 	ret = MPPSystem::Bind<HI_ID_VOU, HI_ID_GROUP>(10, 0, 0, 0);
-	CHACK_ERROR(ret);
+	CHECK_ERROR(ret);
 	ret = MPPSystem::Bind<HI_ID_VOU, HI_ID_GROUP>(11, 0, 1, 0);
-	CHACK_ERROR(ret);
+	CHECK_ERROR(ret);
 	ret = MPPSystem::Bind<HI_ID_VOU, HI_ID_GROUP>(12, 0, 2, 0);
-	CHACK_ERROR(ret);
+	CHECK_ERROR(ret);
 
 #endif
 
 	ret = PCIVComm::Instance()->Initialize();
-	CHACK_ERROR(ret);
+	CHECK_ERROR(ret);
 
 	pciv::Msg msg;
 	uint8_t tmp_buf[1024];
@@ -193,7 +193,7 @@ int32_t main(int32_t argc, char **argv)
 	while (g_Run)
 	{
 		ret = Recv(PCIVComm::Instance(), RS_PCIV_MASTER_ID, RS_PCIV_CMD_PORT, tmp_buf, sizeof(tmp_buf), msg_buf, g_Run, msg);
-		CHACK_ERROR(ret);
+		CHECK_ERROR(ret);
 
 		if (!g_Run)
 			break;
@@ -207,7 +207,7 @@ int32_t main(int32_t argc, char **argv)
 			memcpy(&conf, msg.data, sizeof(conf));
 			Adv7842::Instance()->Close();
 			ret = Adv7842::Instance()->Initialize(static_cast<ADV7842_MODE>(conf.mode));
-			CHACK_ERROR(ret);
+			CHECK_ERROR(ret);
 			Adv7842::Instance()->SetVIFmtListener(&vi_pc);
 			break;
 		}
@@ -220,7 +220,7 @@ int32_t main(int32_t argc, char **argv)
 			msg.type = pciv::Msg::Type::ACK;
 			memcpy(msg.data, &query, sizeof(query));
 			ret = PCIVComm::Instance()->Send(RS_PCIV_MASTER_ID, RS_PCIV_CMD_PORT, reinterpret_cast<uint8_t *>(&msg), sizeof(msg));
-			CHACK_ERROR(ret)
+			CHECK_ERROR(ret)
 			break;
 		}
 		case pciv::Msg::Type::START_TRANS:
@@ -230,7 +230,7 @@ int32_t main(int32_t argc, char **argv)
 			venc_pc.SetVideoSink(nullptr);
 			PCIVTrans::Instance()->Close();
 			ret = PCIVTrans::Instance()->Initialize(PCIVComm::Instance(), mem_info);
-			CHACK_ERROR(ret);
+			CHECK_ERROR(ret);
 			venc_pc.SetVideoSink(PCIVTrans::Instance());
 			break;
 		}
@@ -259,7 +259,7 @@ int32_t main(int32_t argc, char **argv)
 			venc_black_board.SetVideoSink(nullptr);
 			PCIVTrans::Instance()->Close();
 			ret = PCIVTrans::Instance()->Initialize(PCIVComm::Instance(), mem_info);
-			CHACK_ERROR(ret);
+			CHECK_ERROR(ret);
 			venc_tea_full.SetVideoSink(PCIVTrans::Instance());
 			venc_stu_full.SetVideoSink(PCIVTrans::Instance());
 			venc_black_board.SetVideoSink(PCIVTrans::Instance());
