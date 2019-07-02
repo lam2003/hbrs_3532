@@ -33,23 +33,23 @@ VideoInput::VideoInput() : init_(false)
 
 void VideoInput::SetMask(int32_t dev, VI_DEV_ATTR_S &dev_attr)
 {
-    switch (dev % 4)
+    switch (dev)
     {
     case 0:
         dev_attr.au32CompMask[0] = 0xFF000000;
         dev_attr.au32CompMask[1] = 0x00FF0000;
         break;
-    case 1:
-        dev_attr.au32CompMask[0] = 0x00FF0000;
-        dev_attr.au32CompMask[1] = 0x0;
-        break;
     case 2:
         dev_attr.au32CompMask[0] = 0x0000FF00;
         dev_attr.au32CompMask[1] = 0x000000FF;
         break;
-    case 3:
-        dev_attr.au32CompMask[0] = 0x000000FF;
-        dev_attr.au32CompMask[1] = 0x0;
+    case 4:
+        dev_attr.au32CompMask[0] = 0xFF000000;
+        dev_attr.au32CompMask[1] = 0x00FF0000;
+        break;
+    case 6:
+        dev_attr.au32CompMask[0] = 0x0000FF00;
+        dev_attr.au32CompMask[1] = 0x000000FF;
         break;
     default:
         RS_ASSERT(0);
