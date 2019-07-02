@@ -39,6 +39,8 @@ protected:
 
 private:
     vi::Params params_;
+    std::atomic<bool> run_;
+    std::unique_ptr<std::thread> thread_;
     bool init_;
 
     static const VI_DEV_ATTR_S DevAttr_7441_BT1120_1080P;

@@ -27,7 +27,9 @@ VideoInput::~VideoInput()
     Close();
 }
 
-VideoInput::VideoInput() : init_(false)
+VideoInput::VideoInput() : run_(false),
+                           thread_(nullptr),
+                           init_(false)
 {
 }
 
@@ -132,17 +134,66 @@ int32_t VideoInput::Initialize(const Params &params)
     if (init_)
         return KInitialized;
 
-    int32_t ret;
-
     params_ = params;
 
-    ret = StartDev(params_.dev, params_.width, params_.height, params_.interlaced);
-    if (ret != KSuccess)
-        return ret;
+    run_ = true;
+    thread_ = std::unique_ptr<std::thread>(new std::thread([this]() {
+        int ret;
+    again:
+        ret = StartDev(params_.dev, params_.width, params_.height, params_.interlaced);
+        if (ret != KSuccess)
+            return;
 
-    ret = StartChn(params_.chn, params_.width, params_.height);
-    if (ret != KSuccess)
-        return ret;
+        ret = StartChn(params_.chn, params_.width, params_.height);
+        if (ret != KSuccess)
+            return;
+
+        bool first = true;
+        uint32_t int_cnt = 0;
+        VI_CHN_STAT_S stat;
+        while (run_)
+        {
+
+            ret = HI_MPI_VI_Query(params_.chn, &stat);
+            if (ret != KSuccess)
+            {
+                log_e("HI_MPI_VI_Query failed with %#x", ret);
+                return;
+            }
+
+            if (first)
+            {
+                first = false;
+            }
+            else if (int_cnt == stat.u32IntCnt)
+            {
+                ret = HI_MPI_VI_DisableChn(params_.chn);
+                if (ret != KSuccess)
+                {
+                    log_e("HI_MPI_VI_DisableChn failed with %#x", ret);
+                    return;
+                }
+                ret = HI_MPI_VI_DisableDev(params_.dev);
+                if (ret != KSuccess)
+                {
+                    log_e("HI_MPI_VI_DisableDev failed with %#x", ret);
+                    return;
+                }
+                goto again;
+            }
+
+            int_cnt = stat.u32IntCnt;
+            usleep(1000000); //1000ms
+        }
+
+        ret = HI_MPI_VI_DisableChn(params_.chn);
+        if (ret != KSuccess)
+            log_e("HI_MPI_VI_DisableChn failed with %#x", ret);
+
+        ret = HI_MPI_VI_DisableDev(params_.dev);
+        if (ret != KSuccess)
+            log_e("HI_MPI_VI_DisableDev failed with %#x", ret);
+    }));
 
     init_ = true;
     return KSuccess;
@@ -152,16 +203,11 @@ void VideoInput::Close()
 {
     if (!init_)
         return;
-    int ret;
-
-    ret = HI_MPI_VI_DisableChn(params_.chn);
-    if (ret != KSuccess)
-        log_e("HI_MPI_VI_DisableChn failed with %#x", ret);
-
-    ret = HI_MPI_VI_DisableDev(params_.dev);
-    if (ret != KSuccess)
-        log_e("HI_MPI_VI_DisableDev failed with %#x", ret);
+    run_ = false;
+    thread_->join();
+    thread_.reset();
+    thread_ = nullptr;
 
     init_ = false;
 }
-}; // namespace rs
+} // namespace rs

@@ -79,13 +79,13 @@ int32_t main(int32_t argc, char **argv)
 	ret = vpss_pc.SetChnSize(1, {RS_MAX_WIDTH, RS_MAX_HEIGHT});
 	CHECK_ERROR(ret);
 	//初始化虚拟VO
-	ret = vo_pc.Initialize({10, 0, VO_OUTPUT_1080P60});
+	ret = vo_pc.Initialize({10, 0, VO_OUTPUT_1080P30});
 	CHECK_ERROR(ret);
 	//配置虚拟VO开始通道0
 	ret = vo_pc.StartChn({{0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT}, 0, 0});
 	CHECK_ERROR(ret);
 	//初始化VENC
-	ret = venc_pc.Initialize({0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT, 60, 0, 20000, VENC_RC_MODE_H264CBR});
+	ret = venc_pc.Initialize({0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT, 30, 0, 20000, VENC_RC_MODE_H264CBR});
 	CHECK_ERROR(ret);
 	//绑定VI与VPSS
 	ret = MPPSystem::Bind<HI_ID_VIU, HI_ID_VPSS>(0, 8, 0, 0);
@@ -139,13 +139,13 @@ int32_t main(int32_t argc, char **argv)
 	ret = vpss_black_board.SetChnSize(1, {RS_MAX_WIDTH, RS_MAX_HEIGHT});
 	CHECK_ERROR(ret);
 	//初始化虚拟VO
-	ret = vo_tea_full.Initialize({10, 0, VO_OUTPUT_1080P60});
+	ret = vo_tea_full.Initialize({10, 0, VO_OUTPUT_1080P30});
 	CHECK_ERROR(ret);
-	ret = vo_stu_full.Initialize({11, 0, VO_OUTPUT_1080P60});
+	ret = vo_stu_full.Initialize({11, 0, VO_OUTPUT_1080P30});
 	CHECK_ERROR(ret);
-	ret = vo_black_board.Initialize({12, 0, VO_OUTPUT_1080P60});
+	ret = vo_black_board.Initialize({12, 0, VO_OUTPUT_1080P30});
 	CHECK_ERROR(ret);
-	//配置虚拟VO开始通道0
+	//配置虚拟VO通道0
 	ret = vo_tea_full.StartChn({{0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT}, 0, 0});
 	CHECK_ERROR(ret);
 	ret = vo_stu_full.StartChn({{0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT}, 0, 0});
@@ -153,11 +153,11 @@ int32_t main(int32_t argc, char **argv)
 	ret = vo_black_board.StartChn({{0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT}, 0, 0});
 	CHECK_ERROR(ret);
 	//初始化VENC
-	ret = venc_tea_full.Initialize({0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT, 60, 0, 20000, VENC_RC_MODE_H264CBR});
+	ret = venc_tea_full.Initialize({0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT, 30, 0, 20000, VENC_RC_MODE_H264CBR});
 	CHECK_ERROR(ret);
-	ret = venc_stu_full.Initialize({1, 1, RS_MAX_WIDTH, RS_MAX_HEIGHT, 60, 0, 20000, VENC_RC_MODE_H264CBR});
+	ret = venc_stu_full.Initialize({1, 1, RS_MAX_WIDTH, RS_MAX_HEIGHT, 30, 0, 20000, VENC_RC_MODE_H264CBR});
 	CHECK_ERROR(ret);
-	ret = venc_black_board.Initialize({2, 2, RS_MAX_WIDTH, RS_MAX_HEIGHT, 60, 0, 20000, VENC_RC_MODE_H264CBR});
+	ret = venc_black_board.Initialize({2, 2, RS_MAX_WIDTH, RS_MAX_HEIGHT, 30, 0, 20000, VENC_RC_MODE_H264CBR});
 	CHECK_ERROR(ret);
 	//绑定VI与VPSS
 	ret = MPPSystem::Bind<HI_ID_VIU, HI_ID_VPSS>(0, 12, 0, 0);

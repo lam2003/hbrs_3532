@@ -99,11 +99,16 @@ int32_t MPPSystem::ConfigSys()
     return KSuccess;
 }
 
+static inline int32_t Align(int num, int align = RS_ALIGN_WIDTH)
+{
+    return (num + align - 1) & ~(align - 1);
+}
+
 int32_t MPPSystem::ConfigVB(int blk_num)
 {
     int32_t ret;
 
-    uint32_t blk_size = (((RS_MAX_WIDTH + (RS_MAX_WIDTH % RS_ALIGN_WIDTH)) * (RS_MAX_HEIGHT + (RS_MAX_HEIGHT % RS_ALIGN_WIDTH))) * 3) / 2;
+    uint32_t blk_size = Align(RS_MAX_WIDTH) * Align(RS_MAX_HEIGHT) * 3 / 2;
 
     VB_CONF_S conf;
     memset(&conf, 0, sizeof(conf));
