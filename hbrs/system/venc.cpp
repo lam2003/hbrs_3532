@@ -36,7 +36,7 @@ int32_t VideoEncode::Initialize(const Params &params)
     h264_attr.u32MaxPicHeight = params_.height;
     h264_attr.u32PicWidth = params_.width;
     h264_attr.u32PicHeight = params_.height;
-    h264_attr.u32BufSize = params_.width * params_.height * 2;
+    h264_attr.u32BufSize = params_.width * params_.height * 1.5;
     h264_attr.u32Profile = params_.profile;
     h264_attr.bByFrame = HI_FALSE;
     h264_attr.bField = HI_FALSE;
@@ -220,10 +220,23 @@ void VideoEncode::Close()
 {
     if (!init_)
         return;
+    int ret;
+
     run_ = false;
     thread_->join();
     thread_.reset();
     thread_ = nullptr;
+
+    ret = HI_MPI_VENC_UnRegisterChn(params_.chn);
+    if (ret != KSuccess)
+        log_e("HI_MPI_VENC_UnRegisterChn failed with %#x", ret);
+    ret = HI_MPI_VENC_DestroyChn(params_.chn);
+    if (ret != KSuccess)
+        log_e("HI_MPI_VENC_DestroyChn failed with %#x", ret);
+    ret = HI_MPI_VENC_DestroyGroup(params_.grp);
+    if (ret != KSuccess)
+        log_e("HI_MPI_VENC_DestroyGroup failed with %#x", ret);
+
     video_sink_ = nullptr;
     init_ = false;
 }

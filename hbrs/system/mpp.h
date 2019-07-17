@@ -13,7 +13,7 @@ public:
 
     virtual ~MPPSystem();
 
-    int32_t Initialize(int blk_num);
+    int32_t Initialize();
 
     void Close();
 
@@ -76,7 +76,7 @@ protected:
         return KSuccess;
     }
 
-    static int32_t ConfigVB(int blk_num);
+    static int32_t ConfigVB();
 
     static int32_t ConfigSys();
 

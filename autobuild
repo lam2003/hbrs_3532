@@ -1,4 +1,4 @@
 cd ./build/
 cmake ../
 make 
-cp ./hbrs/3532 /nfs
+cp ./hbrs/3532 /nfs/test.bin

@@ -2,6 +2,7 @@
 
 //self
 #include "global.h"
+#include "common/video_define.h"
 
 namespace rs
 {
@@ -12,13 +13,6 @@ struct Params
     int32_t dev;
     VO_INTF_TYPE_E intf_type;
     VO_INTF_SYNC_E intf_sync;
-};
-
-struct Channel
-{
-    RECT_S rect;
-    int32_t no;
-    int32_t level;
 };
 } // namespace vo
 
@@ -33,11 +27,17 @@ public:
 
     void Close();
 
-    int32_t StartChn(const vo::Channel &chn);
-
-    int32_t StopChn(int32_t chn);
-
     int32_t StopAllChn();
+
+    int StartChannel(int chn, const RECT_S &rect, int level);
+
+    int StopChannel(int chn);
+
+    int ClearDispBuffer(int chn);
+
+    int SetChannelFrameRate(int chn, int frame_rate);
+
+    static int SetSceneMode(VideoOutput &vo, int mode);
 
 protected:
     static int32_t StartHDMI(HI_HDMI_ID_E dev, VO_INTF_SYNC_E intf_sync);

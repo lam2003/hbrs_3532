@@ -2,6 +2,7 @@
 
 //self
 #include "global.h"
+#include "common/video_define.h"
 
 namespace rs
 {
@@ -184,6 +185,11 @@ public:
         auto now = steady_clock::now();
         auto now_since_epoch = now.time_since_epoch();
         return duration_cast<milliseconds>(now_since_epoch).count();
+    }
+
+    static inline int32_t Align(int num, int align = RS_ALIGN_WIDTH)
+    {
+        return (num + align - 1) & ~(align - 1);
     }
 };
 } // namespace rs

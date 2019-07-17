@@ -60,7 +60,7 @@
 #define RS_PCIV_CMD_PORT 0                              //PCIV命令端口
 #define RS_PCIV_TRANS_READ_PORT 1                       //PCIV传输读端口
 #define RS_PCIV_TRANS_WRITE_PORT 2                      //PCIV传输写端口
-#define RS_MEM_BLK_NUM 20                               //系统VB内存块分配数量
+#define RS_FRAME_RATE 25                                //输出帧率
 
 #define RS_ASSERT(cond)     \
     while (!(cond))         \

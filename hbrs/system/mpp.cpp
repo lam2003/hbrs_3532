@@ -1,5 +1,6 @@
 //self
 #include "system/mpp.h"
+#include "common/utils.h"
 
 namespace rs
 {
@@ -35,7 +36,7 @@ MPPSystem *MPPSystem::Instance()
     return instance;
 }
 
-int32_t MPPSystem::Initialize(int blk_num)
+int32_t MPPSystem::Initialize()
 {
     if (init_)
         return KInitialized;
@@ -56,9 +57,7 @@ int32_t MPPSystem::Initialize(int blk_num)
         return KSDKError;
     }
 
-    ConfigLogger();
-
-    ret = ConfigVB(blk_num);
+    ret = ConfigVB();
     if (ret != KSuccess)
         return ret;
 
@@ -99,29 +98,177 @@ int32_t MPPSystem::ConfigSys()
     return KSuccess;
 }
 
-static inline int32_t Align(int num, int align = RS_ALIGN_WIDTH)
+int MPPSystem::ConfigMem()
 {
-    return (num + align - 1) & ~(align - 1);
+    int ret;
+
+    MPP_CHN_S chn_vi;
+    MPP_CHN_S chn_vo;
+    MPP_CHN_S chn_vpss;
+    MPP_CHN_S grp_chn;
+    MPP_CHN_S venc_chn;
+    MPP_CHN_S chn_rgn;
+    MPP_CHN_S vdec_chn;
+
+    /*VI,VDEC最大通道数为32*/
+    for (int i = 0; i < 32; i++)
+    {
+        chn_vi.enModId = HI_ID_VIU;
+        chn_vi.s32DevId = 0;
+        chn_vi.s32ChnId = i;
+
+        vdec_chn.enModId = HI_ID_VDEC;
+        vdec_chn.s32DevId = 0;
+        vdec_chn.s32ChnId = i;
+
+        const char *mmz_name = (i % 2 == 0 ? nullptr : "ddr1");
+
+        /*vi*/
+        ret = HI_MPI_SYS_SetMemConf(&chn_vi, mmz_name);
+        if (ret)
+        {
+            log_e("HI_MPI_SYS_SetMemConf failed with %#x", ret);
+            return KSDKError;
+        }
+
+        /*vdec*/
+        ret = HI_MPI_SYS_SetMemConf(&vdec_chn, mmz_name);
+        if (ret)
+        {
+            log_e("HI_MPI_SYS_SetMemConf failed with %#x", ret);
+            return KSDKError;
+        }
+    }
+
+    /*vpss,grp,venc最大通道为64*/
+    for (int i = 0; i < 64; i++)
+    {
+        chn_vpss.enModId = HI_ID_VPSS;
+        chn_vpss.s32DevId = i;
+        chn_vpss.s32ChnId = 0;
+
+        grp_chn.enModId = HI_ID_GROUP;
+        grp_chn.s32DevId = i;
+        grp_chn.s32ChnId = 0;
+
+        venc_chn.enModId = HI_ID_VENC;
+        venc_chn.s32DevId = 0;
+        venc_chn.s32ChnId = i;
+
+        const char *mmz_name = (i % 2 == 0 ? nullptr : "ddr1");
+
+        /*vpss*/
+        ret = HI_MPI_SYS_SetMemConf(&chn_vpss, mmz_name);
+        if (ret)
+        {
+            log_e("HI_MPI_SYS_SetMemConf failed with %#x", ret);
+            return KSDKError;
+        }
+
+        /*grp*/
+        ret = HI_MPI_SYS_SetMemConf(&grp_chn, mmz_name);
+        if (ret)
+        {
+            log_e("HI_MPI_SYS_SetMemConf failed with %#x", ret);
+            return KSDKError;
+        }
+
+        /*venc*/
+        ret = HI_MPI_SYS_SetMemConf(&venc_chn, mmz_name);
+        if (ret)
+        {
+            log_e("HI_MPI_SYS_SetMemConf failed with %#x", ret);
+            return KSDKError;
+        }
+    }
+
+    /*配置RGN内存*/
+    chn_rgn.enModId = HI_ID_RGN;
+    chn_rgn.s32DevId = 0;
+    chn_rgn.s32ChnId = 0;
+    ret = HI_MPI_SYS_SetMemConf(&chn_rgn, "ddr1");
+    if (ret)
+    {
+        log_e("HI_MPI_SYS_SetMemConf failed with %#x", ret);
+        return KSDKError;
+    }
+
+    /*配置VO内存*/
+    chn_vo.enModId = HI_ID_VOU;
+    chn_vo.s32DevId = 0;
+    chn_vo.s32ChnId = 0;
+    ret = HI_MPI_SYS_SetMemConf(&chn_vo, nullptr);
+    if (ret)
+    {
+        log_e("HI_MPI_SYS_SetMemConf failed with %#x", ret);
+        return KSDKError;
+    }
+
+    chn_vo.enModId = HI_ID_VOU;
+    chn_vo.s32DevId = 10;
+    chn_vo.s32ChnId = 0;
+    ret = HI_MPI_SYS_SetMemConf(&chn_vo, "ddr1");
+    if (ret)
+    {
+        log_e("HI_MPI_SYS_SetMemConf failed with %#x", ret);
+        return KSDKError;
+    }
+    chn_vo.enModId = HI_ID_VOU;
+    chn_vo.s32DevId = 11;
+    chn_vo.s32ChnId = 0;
+    ret = HI_MPI_SYS_SetMemConf(&chn_vo, nullptr);
+    if (ret)
+    {
+        log_e("HI_MPI_SYS_SetMemConf failed with %#x", ret);
+        return KSDKError;
+    }
+
+    chn_vo.enModId = HI_ID_VOU;
+    chn_vo.s32DevId = 12;
+    chn_vo.s32ChnId = 0;
+    ret = HI_MPI_SYS_SetMemConf(&chn_vo, "ddr1");
+    if (ret)
+    {
+        log_e("HI_MPI_SYS_SetMemConf failed with %#x", ret);
+        return KSDKError;
+    }
+
+    return KSuccess;
 }
 
-int32_t MPPSystem::ConfigVB(int blk_num)
+int32_t MPPSystem::ConfigVB()
 {
     int32_t ret;
 
-    uint32_t blk_size = Align(RS_MAX_WIDTH) * Align(RS_MAX_HEIGHT) * 3 / 2;
+    uint32_t blk_size = Utils::Align(RS_MAX_WIDTH) * Utils::Align(RS_MAX_HEIGHT) * 1.5;
 
     VB_CONF_S conf;
     memset(&conf, 0, sizeof(conf));
     conf.u32MaxPoolCnt = 128;
-    conf.astCommPool[0].u32BlkSize = blk_size;
-    conf.astCommPool[0].u32BlkCnt = blk_num / 2;
 
+    //ddr0 pciv buffer
+    conf.astCommPool[0].u32BlkSize = RS_PCIV_WINDOW_SIZE;
+    conf.astCommPool[0].u32BlkCnt = 2;
+    memset(conf.astCommPool[0].acMmzName, 0,
+           sizeof(conf.astCommPool[0].acMmzName));
+
+    //ddr0 video buffer
     conf.astCommPool[1].u32BlkSize = blk_size;
-    conf.astCommPool[1].u32BlkCnt = blk_num / 2;
-    strcpy(conf.astCommPool[1].acMmzName, "ddr1");
+    conf.astCommPool[1].u32BlkCnt = 16;
+    memset(conf.astCommPool[1].acMmzName, 0, sizeof(conf.astCommPool[1].acMmzName));
+    //ddr0 hist buffer
+    conf.astCommPool[2].u32BlkSize = (196 * 4);
+    conf.astCommPool[2].u32BlkCnt = 16;
+    memset(conf.astCommPool[2].acMmzName, 0, sizeof(conf.astCommPool[2].acMmzName));
 
-    conf.astCommPool[2].u32BlkSize = RS_PCIV_WINDOW_SIZE / 2;
-    conf.astCommPool[2].u32BlkCnt = 1;
+    //ddr1 video buffer
+    conf.astCommPool[3].u32BlkSize = blk_size;
+    conf.astCommPool[3].u32BlkCnt = 16;
+    strcpy(conf.astCommPool[3].acMmzName, "ddr1");
+    //ddr1 hist buffer
+    conf.astCommPool[4].u32BlkSize = (196 * 4);
+    conf.astCommPool[4].u32BlkCnt = 16;
+    strcpy(conf.astCommPool[4].acMmzName, "ddr1");
 
     ret = HI_MPI_VB_SetConf(&conf);
     if (ret != KSuccess)
@@ -139,131 +286,4 @@ int32_t MPPSystem::ConfigVB(int blk_num)
 
     return KSuccess;
 }
-
-void MPPSystem::ConfigLogger()
-{
-    setbuf(stdout, NULL);
-    elog_init();
-    elog_set_fmt(ELOG_LVL_ASSERT, ELOG_FMT_ALL);
-    elog_set_fmt(ELOG_LVL_ERROR, ELOG_FMT_LVL | ELOG_FMT_TIME | ELOG_FMT_DIR |
-                                     ELOG_FMT_LINE | ELOG_FMT_FUNC);
-    elog_set_fmt(ELOG_LVL_WARN, ELOG_FMT_LVL | ELOG_FMT_TIME);
-    elog_set_fmt(ELOG_LVL_INFO, ELOG_FMT_LVL | ELOG_FMT_TIME);
-    elog_set_fmt(ELOG_LVL_DEBUG, ELOG_FMT_LVL | ELOG_FMT_TIME);
-    elog_set_fmt(ELOG_LVL_VERBOSE, ELOG_FMT_ALL & ~ELOG_FMT_FUNC);
-    elog_set_text_color_enabled(true);
-    elog_start();
-}
-
-int32_t MPPSystem::ConfigMem()
-{
-    int ret;
-
-    MPP_CHN_S chn_vi;
-    MPP_CHN_S chn_vo;
-    MPP_CHN_S chn_vpss;
-    MPP_CHN_S chn_grp;
-    MPP_CHN_S chn_venc;
-    MPP_CHN_S chn_rgn;
-    MPP_CHN_S chn_dec;
-
-    for (int i = 0; i < 4; i++)
-    {
-        chn_vi.enModId = HI_ID_VIU;
-        chn_vi.s32DevId = 0;
-        chn_vi.s32ChnId = i * 4;
-
-        const char *mmz_name = (i % 2 == 0 ? nullptr : "ddr1");
-        ret = HI_MPI_SYS_SetMemConf(&chn_vi, mmz_name);
-        if (ret != KSuccess)
-        {
-            log_e("HI_MPI_SYS_SetMemConf failed with %#x", ret);
-            return KSDKError;
-        }
-    }
-
-    for (int i = 0; i < VDEC_MAX_CHN_NUM; i++)
-    {
-        chn_dec.enModId = HI_ID_VDEC;
-        chn_dec.s32DevId = 0;
-        chn_dec.s32ChnId = i;
-
-        const char *mmz_name = (i % 2 == 0 ? nullptr : "ddr1");
-        ret = HI_MPI_SYS_SetMemConf(&chn_dec, mmz_name);
-        if (ret != KSuccess)
-        {
-            log_e("HI_MPI_SYS_SetMemConf failed with %#x", ret);
-            return KSDKError;
-        }
-    }
-
-    for (int i = 0; i < VENC_MAX_GRP_NUM; i++)
-    {
-        chn_venc.enModId = HI_ID_VENC;
-        chn_venc.s32DevId = 0;
-        chn_venc.s32ChnId = i;
-
-        chn_grp.enModId = HI_ID_GROUP;
-        chn_grp.s32DevId = i;
-        chn_grp.s32ChnId = 0;
-
-        const char *mmz_name = (i % 2 == 0 ? nullptr : "ddr1");
-        ret = HI_MPI_SYS_SetMemConf(&chn_venc, mmz_name);
-        if (ret != KSuccess)
-        {
-            log_e("HI_MPI_SYS_SetMemConf failed with %#x", ret);
-            return KSDKError;
-        }
-        ret = HI_MPI_SYS_SetMemConf(&chn_grp, mmz_name);
-        if (ret != KSuccess)
-        {
-            log_e("HI_MPI_SYS_SetMemConf failed with %#x", ret);
-            return KSDKError;
-        }
-    }
-
-    for (int i = 0; i < VPSS_MAX_GRP_NUM; i++)
-    {
-        chn_vpss.enModId = HI_ID_VPSS;
-        chn_vpss.s32DevId = i;
-        chn_vpss.s32ChnId = 0;
-        const char *mmz_name = (i % 2 == 0 ? nullptr : "ddr1");
-        ret = HI_MPI_SYS_SetMemConf(&chn_vpss, mmz_name);
-        if (ret != KSuccess)
-        {
-            log_e("HI_MPI_SYS_SetMemConf failed with %#x", ret);
-            return KSDKError;
-        }
-    }
-
-    for (int i = 0; i < VO_MAX_DEV_NUM; i++)
-    {
-        chn_vo.enModId = HI_ID_VOU;
-        chn_vo.s32DevId = i;
-        chn_vo.s32ChnId = 0;
-        const char *mmz_name = (i % 2 == 0 ? nullptr : "ddr1");
-        ret = HI_MPI_SYS_SetMemConf(&chn_vo, mmz_name);
-        if (ret != KSuccess)
-        {
-            log_e("HI_MPI_SYS_SetMemConf failed with %#x", ret);
-            return KSDKError;
-        }
-    }
-
-    {
-        chn_rgn.enModId = HI_ID_RGN;
-        chn_rgn.s32DevId = 0;
-        chn_rgn.s32ChnId = 0;
-        const char *mmz_name = nullptr;
-        ret = HI_MPI_SYS_SetMemConf(&chn_rgn, mmz_name);
-        if (ret != KSuccess)
-        {
-            log_e("HI_MPI_SYS_SetMemConf failed with %#x", ret);
-            return KSDKError;
-        }
-    }
-
-    return KSuccess;
-}
-
 } // namespace rs

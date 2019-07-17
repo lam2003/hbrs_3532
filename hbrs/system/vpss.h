@@ -1,6 +1,8 @@
 #pragma once
+
 //self
 #include "global.h"
+#include "common/video_define.h"
 
 namespace rs
 {
@@ -25,13 +27,14 @@ public:
 
     void Close();
 
-    int32_t SetChnSize(int32_t chn, const SIZE_S &size, HI_VPSS_CHN_MODE_E mode = VPSS_CHN_MODE_USER);
+    int StartUserChannel(int chn, const SIZE_S &size);
 
-protected:
-    static int32_t SetChnMode(int32_t grp, int32_t chn, const SIZE_S &size, HI_VPSS_CHN_MODE_E mode);
+    int StopUserChannal(int chn);
+
+    int SetFrameRateControl(int src_frame_rate, int dst_frame_rate);
 
 private:
     vpss::Params params_;
     bool init_;
-};
+}; // namespace rs
 } // namespace rs

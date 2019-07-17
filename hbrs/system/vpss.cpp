@@ -34,8 +34,8 @@ int32_t VideoProcess::Initialize(const Params &params)
     attr.bDrEn = HI_FALSE;
     attr.bDbEn = HI_FALSE;
     attr.bIeEn = HI_FALSE;
-    attr.bNrEn = HI_FALSE;
-    attr.bHistEn = HI_FALSE;
+    attr.bNrEn = HI_TRUE;
+    attr.bHistEn = HI_TRUE;
     attr.enDieMode = VPSS_DIE_MODE_AUTO;
     attr.enPixFmt = RS_PIXEL_FORMAT;
 
@@ -68,34 +68,48 @@ int32_t VideoProcess::Initialize(const Params &params)
     return KSuccess;
 }
 
-int32_t VideoProcess::SetChnMode(int32_t grp, int32_t chn, const SIZE_S &size, HI_VPSS_CHN_MODE_E mode)
+int VideoProcess::StartUserChannel(int chn, const SIZE_S &size)
 {
+    if (!init_)
+        return KUnInitialized;
     int32_t ret;
+
     VPSS_CHN_MODE_S chn_mode;
     memset(&chn_mode, 0, sizeof(chn_mode));
-    chn_mode.enChnMode = mode;
+
+    chn_mode.enChnMode = VPSS_CHN_MODE_USER;
     chn_mode.u32Width = size.u32Width;
     chn_mode.u32Height = size.u32Height;
     chn_mode.bDouble = HI_FALSE;
     chn_mode.enPixelFormat = RS_PIXEL_FORMAT;
-    ret = HI_MPI_VPSS_SetChnMode(grp, chn, &chn_mode);
+
+    ret = HI_MPI_VPSS_SetChnMode(params_.grp, chn, &chn_mode);
     if (ret != KSuccess)
     {
         log_e("HI_MPI_VPSS_SetChnMode failed with %#x", ret);
         return KSDKError;
     }
+
     return KSuccess;
 }
 
-int32_t VideoProcess::SetChnSize(int32_t chn, const SIZE_S &size, HI_VPSS_CHN_MODE_E mode)
+int VideoProcess::StopUserChannal(int chn)
 {
     if (!init_)
         return KUnInitialized;
 
     int32_t ret;
-    ret = SetChnMode(params_.grp, chn, size, mode);
+
+    VPSS_CHN_MODE_S chn_mode;
+    memset(&chn_mode, 0, sizeof(chn_mode));
+
+    chn_mode.enChnMode = VPSS_CHN_MODE_AUTO;
+    ret = HI_MPI_VPSS_SetChnMode(params_.grp, chn, &chn_mode);
     if (ret != KSuccess)
-        return ret;
+    {
+        log_e("HI_MPI_VPSS_SetChnMode failed with %#x", ret);
+        return KSDKError;
+    }
 
     return KSuccess;
 }
@@ -124,4 +138,20 @@ void VideoProcess::Close()
     init_ = false;
 }
 
+int VideoProcess::SetFrameRateControl(int src_frame_rate, int dst_frame_rate)
+{
+    if (!init_)
+        return KUnInitialized;
+
+    int ret;
+    VPSS_FRAME_RATE_S conf = {src_frame_rate, dst_frame_rate};
+    ret = HI_MPI_VPSS_SetGrpFrameRate(params_.grp, &conf);
+    if (ret != KSuccess)
+    {
+        log_e("HI_MPI_VPSS_SetGrpFrameRate failed with %#x", ret);
+        return KSDKError;
+    }
+
+    return KSuccess;
+}
 } // namespace rs

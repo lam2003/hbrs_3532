@@ -1,5 +1,6 @@
 //self
 #include "system/vi.h"
+#include "system/vo.h"
 #include "common/err_code.h"
 
 namespace rs
@@ -210,4 +211,43 @@ void VideoInput::Close()
 
     init_ = false;
 }
+
+void VIHelper::OnStop()
+{
+    vo_->ClearDispBuffer(0);
+    vi_.Close();
+}
+
+void VIHelper::OnChange(const VideoInputFormat &fmt)
+{
+    log_d("vi[%d][%d]has_signal:%d,fmt.width:%d,height:%d,fps:%d,interlaced:%d",
+          dev_,
+          chn_,
+          fmt.has_signal,
+          fmt.width,
+          fmt.height,
+          fmt.frame_rate,
+          fmt.interlaced);
+
+    vi_.Close();
+    if (fmt.has_signal)
+    {
+        vi_.Initialize({dev_, chn_, fmt.width, fmt.height, fmt.interlaced});
+    }
+    else
+    {
+        vo_->ClearDispBuffer(0);
+    }
+}
+
+VIHelper::VIHelper(int dev, int chn, VideoOutput *vo) : dev_(dev),
+                                                        chn_(chn),
+                                                        vo_(vo)                                 
+{
+}
+
+VIHelper::~VIHelper()
+{
+}
+
 } // namespace rs

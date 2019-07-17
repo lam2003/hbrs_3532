@@ -9,6 +9,7 @@
 #include "system/vpss.h"
 #include "system/venc.h"
 #include "common/buffer.h"
+#include "common/logger.h"
 
 using namespace rs;
 
@@ -61,48 +62,43 @@ int32_t main(int32_t argc, char **argv)
 {
 	int ret;
 
+	ConfigLogger();
+
 	signal(SIGINT, SignalHandler);
 
-	ret = MPPSystem::Instance()->Initialize(RS_MEM_BLK_NUM);
+	ret = MPPSystem::Instance()->Initialize();
 	CHECK_ERROR(ret);
 
 #if CHIP_TYPE == 1
-	VIHelper vi_pc(4, 8);
 	VideoProcess vpss_pc;
 	VideoOutput vo_pc;
 	VideoEncode venc_pc;
 
-	//初始化VPSS
+	//#####################################################
+	//初始化从片1上的一路vi,vi->vpss->vir_vo
+	//#####################################################
 	ret = vpss_pc.Initialize({0});
 	CHECK_ERROR(ret);
-	//配置VPSS通道1
-	ret = vpss_pc.SetChnSize(1, {RS_MAX_WIDTH, RS_MAX_HEIGHT});
+	ret = vo_pc.Initialize({10, 0, VO_OUTPUT_1080P25});
 	CHECK_ERROR(ret);
-	//初始化虚拟VO
-	ret = vo_pc.Initialize({10, 0, VO_OUTPUT_1080P30});
+	ret = vo_pc.StartChannel(0, {0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT}, 0);
 	CHECK_ERROR(ret);
-	//配置虚拟VO开始通道0
-	ret = vo_pc.StartChn({{0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT}, 0, 0});
-	CHECK_ERROR(ret);
-	//初始化VENC
-	ret = venc_pc.Initialize({0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT, 30, 0, 20000, VENC_RC_MODE_H264CBR});
-	CHECK_ERROR(ret);
-	//绑定VI与VPSS
+	VIHelper vi_pc(4, 8, &vo_pc);
 	ret = MPPSystem::Bind<HI_ID_VIU, HI_ID_VPSS>(0, 8, 0, 0);
 	CHECK_ERROR(ret);
-	//绑定VPSS与虚拟VO
-	ret = MPPSystem::Bind<HI_ID_VPSS, HI_ID_VOU>(0, 1, 10, 0);
+	ret = MPPSystem::Bind<HI_ID_VPSS, HI_ID_VOU>(0, 4, 10, 0);
 	CHECK_ERROR(ret);
-	//绑定虚拟VO与VENC
+	//#####################################################
+	//初始化从片1上的编码器,vir_vo->venc
+	//#####################################################
+	ret = venc_pc.Initialize({0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT, RS_FRAME_RATE, 0, 20000, VENC_RC_MODE_H264CBR});
+	CHECK_ERROR(ret);
 	ret = MPPSystem::Bind<HI_ID_VOU, HI_ID_GROUP>(10, 0, 0, 0);
 	CHECK_ERROR(ret);
 #else
 	Tw6874 tw6874_tea_full;
 	Tw6874 tw6874_stu_full;
 	Tw6874 tw6874_black_board;
-	VIHelper vi_tea_full(6, 12);
-	VIHelper vi_stu_full(4, 8);
-	VIHelper vi_black_board(2, 4);
 	VideoProcess vpss_tea_full;
 	VideoProcess vpss_stu_full;
 	VideoProcess vpss_black_board;
@@ -112,75 +108,69 @@ int32_t main(int32_t argc, char **argv)
 	VideoEncode venc_tea_full;
 	VideoEncode venc_stu_full;
 	VideoEncode venc_black_board;
-	//初始化tw6874
-	ret = tw6874_tea_full.Initialize();
-	CHECK_ERROR(ret);
-	ret = tw6874_stu_full.Initialize();
-	CHECK_ERROR(ret);
-	ret = tw6874_black_board.Initialize();
-	CHECK_ERROR(ret);
-
-	//关联VIHelper与tw6874
-	tw6874_tea_full.SetVIFmtListener(&vi_tea_full);
-	tw6874_stu_full.SetVIFmtListener(&vi_stu_full);
-	tw6874_black_board.SetVIFmtListener(&vi_black_board);
-	//初始化VPSS
+	//#####################################################
+	//初始化从片3上的三路vi,vi->vpss->vir_vo
+	//#####################################################
 	ret = vpss_tea_full.Initialize({0});
 	CHECK_ERROR(ret);
 	ret = vpss_stu_full.Initialize({1});
 	CHECK_ERROR(ret);
 	ret = vpss_black_board.Initialize({2});
 	CHECK_ERROR(ret);
-	//配置VPSS通道1
-	ret = vpss_tea_full.SetChnSize(1, {RS_MAX_WIDTH, RS_MAX_HEIGHT});
+	ret = vo_tea_full.Initialize({10, 0, VO_OUTPUT_1080P25});
 	CHECK_ERROR(ret);
-	ret = vpss_stu_full.SetChnSize(1, {RS_MAX_WIDTH, RS_MAX_HEIGHT});
+	ret = vo_stu_full.Initialize({11, 0, VO_OUTPUT_1080P25});
 	CHECK_ERROR(ret);
-	ret = vpss_black_board.SetChnSize(1, {RS_MAX_WIDTH, RS_MAX_HEIGHT});
+	ret = vo_black_board.Initialize({12, 0, VO_OUTPUT_1080P25});
 	CHECK_ERROR(ret);
-	//初始化虚拟VO
-	ret = vo_tea_full.Initialize({10, 0, VO_OUTPUT_1080P30});
+	ret = vo_tea_full.StartChannel(0, {0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT}, 0);
 	CHECK_ERROR(ret);
-	ret = vo_stu_full.Initialize({11, 0, VO_OUTPUT_1080P30});
+	ret = vo_stu_full.StartChannel(0, {0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT}, 0);
 	CHECK_ERROR(ret);
-	ret = vo_black_board.Initialize({12, 0, VO_OUTPUT_1080P30});
+	ret = vo_black_board.StartChannel(0, {0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT}, 0);
 	CHECK_ERROR(ret);
-	//配置虚拟VO通道0
-	ret = vo_tea_full.StartChn({{0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT}, 0, 0});
-	CHECK_ERROR(ret);
-	ret = vo_stu_full.StartChn({{0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT}, 0, 0});
-	CHECK_ERROR(ret);
-	ret = vo_black_board.StartChn({{0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT}, 0, 0});
-	CHECK_ERROR(ret);
-	//初始化VENC
-	ret = venc_tea_full.Initialize({0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT, 30, 0, 20000, VENC_RC_MODE_H264CBR});
-	CHECK_ERROR(ret);
-	ret = venc_stu_full.Initialize({1, 1, RS_MAX_WIDTH, RS_MAX_HEIGHT, 30, 0, 20000, VENC_RC_MODE_H264CBR});
-	CHECK_ERROR(ret);
-	ret = venc_black_board.Initialize({2, 2, RS_MAX_WIDTH, RS_MAX_HEIGHT, 30, 0, 20000, VENC_RC_MODE_H264CBR});
-	CHECK_ERROR(ret);
-	//绑定VI与VPSS
+	VIHelper vi_tea_full(6, 12, &vo_tea_full);
+	VIHelper vi_stu_full(4, 8, &vo_stu_full);
+	VIHelper vi_black_board(2, 4, &vo_black_board);
 	ret = MPPSystem::Bind<HI_ID_VIU, HI_ID_VPSS>(0, 12, 0, 0);
 	CHECK_ERROR(ret);
 	ret = MPPSystem::Bind<HI_ID_VIU, HI_ID_VPSS>(0, 8, 1, 0);
 	CHECK_ERROR(ret);
 	ret = MPPSystem::Bind<HI_ID_VIU, HI_ID_VPSS>(0, 4, 2, 0);
 	CHECK_ERROR(ret);
-	//绑定VPSS与虚拟VO
-	ret = MPPSystem::Bind<HI_ID_VPSS, HI_ID_VOU>(0, 1, 10, 0);
+	ret = MPPSystem::Bind<HI_ID_VPSS, HI_ID_VOU>(0, 4, 10, 0);
 	CHECK_ERROR(ret);
-	ret = MPPSystem::Bind<HI_ID_VPSS, HI_ID_VOU>(1, 1, 11, 0);
+	ret = MPPSystem::Bind<HI_ID_VPSS, HI_ID_VOU>(1, 4, 11, 0);
 	CHECK_ERROR(ret);
-	ret = MPPSystem::Bind<HI_ID_VPSS, HI_ID_VOU>(2, 1, 12, 0);
+	ret = MPPSystem::Bind<HI_ID_VPSS, HI_ID_VOU>(2, 4, 12, 0);
 	CHECK_ERROR(ret);
-	//绑定虚拟VO与VENC
+	//#####################################################
+	//初始化从片3上的tw6874信号接收器
+	//#####################################################
+	ret = tw6874_tea_full.Initialize();
+	CHECK_ERROR(ret);
+	ret = tw6874_stu_full.Initialize();
+	CHECK_ERROR(ret);
+	ret = tw6874_black_board.Initialize();
+	CHECK_ERROR(ret);
+	tw6874_tea_full.SetVIFmtListener(&vi_tea_full);
+	tw6874_stu_full.SetVIFmtListener(&vi_stu_full);
+	tw6874_black_board.SetVIFmtListener(&vi_black_board);
+	//#####################################################
+	//初始化从片3上的编码器 vir_vo->venc
+	//#####################################################
+	ret = venc_tea_full.Initialize({0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT, RS_FRAME_RATE, 0, 20000, VENC_RC_MODE_H264CBR});
+	CHECK_ERROR(ret);
+	ret = venc_stu_full.Initialize({1, 1, RS_MAX_WIDTH, RS_MAX_HEIGHT, RS_FRAME_RATE, 0, 20000, VENC_RC_MODE_H264CBR});
+	CHECK_ERROR(ret);
+	ret = venc_black_board.Initialize({2, 2, RS_MAX_WIDTH, RS_MAX_HEIGHT, RS_FRAME_RATE, 0, 20000, VENC_RC_MODE_H264CBR});
+	CHECK_ERROR(ret);
 	ret = MPPSystem::Bind<HI_ID_VOU, HI_ID_GROUP>(10, 0, 0, 0);
 	CHECK_ERROR(ret);
 	ret = MPPSystem::Bind<HI_ID_VOU, HI_ID_GROUP>(11, 0, 1, 0);
 	CHECK_ERROR(ret);
 	ret = MPPSystem::Bind<HI_ID_VOU, HI_ID_GROUP>(12, 0, 2, 0);
 	CHECK_ERROR(ret);
-
 #endif
 
 	ret = PCIVComm::Instance()->Initialize();
@@ -286,34 +276,34 @@ int32_t main(int32_t argc, char **argv)
 	PCIVComm::Instance()->Close();
 #if CHIP_TYPE == 1
 	MPPSystem::UnBind<HI_ID_VOU, HI_ID_GROUP>(10, 0, 0, 0);
-	MPPSystem::UnBind<HI_ID_VPSS, HI_ID_VOU>(0, 1, 10, 0);
-	MPPSystem::UnBind<HI_ID_VIU, HI_ID_VPSS>(0, 8, 0, 0);
 	venc_pc.Close();
+	Adv7842::Instance()->Close();
+	MPPSystem::UnBind<HI_ID_VPSS, HI_ID_VOU>(0, 4, 10, 0);
+	MPPSystem::UnBind<HI_ID_VIU, HI_ID_VPSS>(0, 8, 0, 0);
 	vo_pc.Close();
 	vpss_pc.Close();
-	Adv7842::Instance()->Close();
 #else
 	MPPSystem::UnBind<HI_ID_VOU, HI_ID_GROUP>(12, 0, 2, 0);
 	MPPSystem::UnBind<HI_ID_VOU, HI_ID_GROUP>(11, 0, 1, 0);
 	MPPSystem::UnBind<HI_ID_VOU, HI_ID_GROUP>(10, 0, 0, 0);
-	MPPSystem::UnBind<HI_ID_VPSS, HI_ID_VOU>(2, 1, 12, 0);
-	MPPSystem::UnBind<HI_ID_VPSS, HI_ID_VOU>(1, 1, 11, 0);
-	MPPSystem::UnBind<HI_ID_VPSS, HI_ID_VOU>(0, 1, 10, 0);
-	MPPSystem::UnBind<HI_ID_VIU, HI_ID_VPSS>(0, 4, 2, 0);
-	MPPSystem::UnBind<HI_ID_VIU, HI_ID_VPSS>(0, 8, 1, 0);
-	MPPSystem::UnBind<HI_ID_VIU, HI_ID_VPSS>(0, 12, 0, 0);
 	venc_black_board.Close();
 	venc_stu_full.Close();
 	venc_tea_full.Close();
+	tw6874_black_board.Close();
+	tw6874_stu_full.Close();
+	tw6874_tea_full.Close();
+	MPPSystem::UnBind<HI_ID_VPSS, HI_ID_VOU>(2, 4, 12, 0);
+	MPPSystem::UnBind<HI_ID_VPSS, HI_ID_VOU>(1, 4, 11, 0);
+	MPPSystem::UnBind<HI_ID_VPSS, HI_ID_VOU>(0, 4, 10, 0);
+	MPPSystem::UnBind<HI_ID_VIU, HI_ID_VPSS>(0, 4, 2, 0);
+	MPPSystem::UnBind<HI_ID_VIU, HI_ID_VPSS>(0, 8, 1, 0);
+	MPPSystem::UnBind<HI_ID_VIU, HI_ID_VPSS>(0, 12, 0, 0);
 	vo_black_board.Close();
 	vo_stu_full.Close();
 	vo_tea_full.Close();
 	vpss_black_board.Close();
 	vpss_stu_full.Close();
 	vpss_tea_full.Close();
-	tw6874_black_board.Close();
-	tw6874_stu_full.Close();
-	tw6874_tea_full.Close();
 #endif
 	MPPSystem::Instance()->Close();
 	return KSuccess;

@@ -46,37 +46,23 @@ private:
     static const VI_DEV_ATTR_S DevAttr_7441_BT1120_1080P;
 };
 
+class VideoOutput;
+
 class VIHelper : public VIFmtListener
 {
-
 public:
-    VIHelper(int dev, int chn) : dev_(dev), chn_(chn) {}
-    ~VIHelper() = default;
+    explicit VIHelper(int dev, int chn, VideoOutput *vo);
 
-    void OnChange(const VideoInputFormat &fmt) override
-    {
-        log_d("vi[%d][%d]has_signal:%d,fmt.width:%d,height:%d,fps:%d,interlaced:%d",
-              dev_,
-              chn_,
-              fmt.has_signal,
-              fmt.width,
-              fmt.height,
-              fmt.frame_rate,
-              fmt.interlaced);
+    virtual ~VIHelper();
 
-        vi_.Close();
-        if (fmt.has_signal)
-            vi_.Initialize({dev_, chn_, fmt.width, fmt.height, fmt.interlaced});
-    }
+    void OnChange(const VideoInputFormat &fmt) override;
 
-    void OnStop() override
-    {
-        vi_.Close();
-    }
+    void OnStop() override;
 
 private:
+    VideoInput vi_;
     int dev_;
     int chn_;
-    VideoInput vi_;
+    VideoOutput *vo_;
 };
 } // namespace rs
