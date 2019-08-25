@@ -24,6 +24,8 @@ int32_t VideoProcess::Initialize(const Params &params)
 
     int32_t ret;
 
+    log_d("VPSS start,grp:%d", params.grp);
+
     params_ = params;
 
     VPSS_GRP_ATTR_S attr;
@@ -68,18 +70,17 @@ int32_t VideoProcess::Initialize(const Params &params)
     return KSuccess;
 }
 
-int VideoProcess::StartUserChannel(int chn, const SIZE_S &size)
+int VideoProcess::StartUserChannel(int chn, const RECT_S &rect)
 {
     if (!init_)
         return KUnInitialized;
     int32_t ret;
-
     VPSS_CHN_MODE_S chn_mode;
     memset(&chn_mode, 0, sizeof(chn_mode));
 
     chn_mode.enChnMode = VPSS_CHN_MODE_USER;
-    chn_mode.u32Width = size.u32Width;
-    chn_mode.u32Height = size.u32Height;
+    chn_mode.u32Width = rect.u32Width;
+    chn_mode.u32Height = rect.u32Height;
     chn_mode.bDouble = HI_FALSE;
     chn_mode.enPixelFormat = RS_PIXEL_FORMAT;
 
@@ -119,6 +120,8 @@ void VideoProcess::Close()
     if (!init_)
         return;
     int ret;
+
+    log_d("VPSS stop,grp:%d", params_.grp);
 
     ret = HI_MPI_VPSS_StopGrp(params_.grp);
     if (ret != KSuccess)

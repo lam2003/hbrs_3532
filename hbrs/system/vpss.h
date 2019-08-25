@@ -27,7 +27,7 @@ public:
 
     void Close();
 
-    int StartUserChannel(int chn, const SIZE_S &size);
+    int StartUserChannel(int chn, const RECT_S &rect);
 
     int StopUserChannal(int chn);
 

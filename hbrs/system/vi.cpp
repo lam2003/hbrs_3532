@@ -135,6 +135,12 @@ int32_t VideoInput::Initialize(const Params &params)
     if (init_)
         return KInitialized;
 
+    log_d("VI start,dev:%d,chn:%d,width:%d,height:%d,interlaced:%d",
+          params.dev,
+          params.chn,
+          params.width,
+          params.height,
+          params.interlaced);
     params_ = params;
 
     run_ = true;
@@ -184,7 +190,10 @@ int32_t VideoInput::Initialize(const Params &params)
             }
 
             int_cnt = stat.u32IntCnt;
-            usleep(1000000); //1000ms
+            int wait_time = 10;
+
+            while (run_ && wait_time--)
+                usleep(500000); //500ms
         }
 
         ret = HI_MPI_VI_DisableChn(params_.chn);
@@ -204,6 +213,8 @@ void VideoInput::Close()
 {
     if (!init_)
         return;
+
+    log_d("VI stop,dev:%d,chn:%d", params_.dev, params_.chn);
     run_ = false;
     thread_->join();
     thread_.reset();
@@ -212,42 +223,59 @@ void VideoInput::Close()
     init_ = false;
 }
 
-void VIHelper::OnStop()
+void VIHelper::OnChange(const VideoInputFormat &fmt, int chn)
 {
-    vo_->ClearDispBuffer(0);
-    vi_.Close();
-}
+    if (chn != chn_)
+        return;
 
-void VIHelper::OnChange(const VideoInputFormat &fmt)
-{
-    log_d("vi[%d][%d]has_signal:%d,fmt.width:%d,height:%d,fps:%d,interlaced:%d",
+    log_d("VI signal change,dev:%d,chn:%d,has_signal:%d,width:%d,height:%d,interlaced:%d",
           dev_,
-          chn_,
+          chn,
           fmt.has_signal,
           fmt.width,
           fmt.height,
-          fmt.frame_rate,
           fmt.interlaced);
 
     vi_.Close();
     if (fmt.has_signal)
     {
-        vi_.Initialize({dev_, chn_, fmt.width, fmt.height, fmt.interlaced});
+        vi_.Initialize( {dev_, chn_, fmt.width, fmt.height, fmt.interlaced});
+        return;
     }
-    else
-    {
+
+    std::unique_lock<std::mutex> lock(mux_);
+    if (vo_ != nullptr)
         vo_->ClearDispBuffer(0);
-    }
 }
 
-VIHelper::VIHelper(int dev, int chn, VideoOutput *vo) : dev_(dev),
-                                                        chn_(chn),
-                                                        vo_(vo)                                 
+VIHelper::VIHelper(int dev, int chn) : dev_(dev),
+                                       chn_(chn),
+                                       vo_(nullptr)
 {
 }
 
 VIHelper::~VIHelper()
 {
+    vi_.Close();
+    vo_.reset();
+    vo_ = nullptr;
+}
+
+void VIHelper::SetVideoOutput(std::shared_ptr<VideoOutput> vo)
+{
+    std::unique_lock<std::mutex> lock(mux_);
+    vo_ = vo;
+}
+
+void VIHelper::Start(int width, int height, bool interlaced)
+{
+    Params params = {dev_, chn_, width, height, interlaced};
+    vi_.Initialize(params);
+}
+
+void VIHelper::Stop()
+{
+    vi_.Close();
 }
 
 } // namespace rs

@@ -15,7 +15,8 @@ struct Params
     int32_t chn;
     int32_t width;
     int32_t height;
-    int32_t frame_rate;
+    int32_t src_frame_rate;
+    int32_t dst_frame_rate;
     int32_t profile;
     int32_t bitrate;
     VENC_RC_MODE_E mode;
@@ -34,16 +35,14 @@ public:
 
     void Close();
 
-    void SetVideoSink(VideoSink<VENC_STREAM_S> *video_sink);
+    void SetVideoSink(std::shared_ptr<VideoSink<VENC_STREAM_S>> sink);
 
 private:
     venc::Params params_;
-    std::mutex video_sink_mux_;
+    std::mutex sink_mux_;
+    std::shared_ptr<VideoSink<VENC_STREAM_S>> sink_;
     std::unique_ptr<std::thread> thread_;
     std::atomic<bool> run_;
-    VideoSink<VENC_STREAM_S> *video_sink_;
     bool init_;
-
-    static const int PacketBufferSize;
 };
 } // namespace rs

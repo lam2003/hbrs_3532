@@ -11,6 +11,14 @@ public:
     virtual void OnFrame(const FrameT &, int32_t chn) {}
 };
 
+struct VENCFrame
+{
+    uint64_t ts;
+    uint32_t len;
+    uint8_t *data;
+    H264E_NALU_TYPE_E type;
+};
+
 struct VideoInputFormat
 {
     bool has_signal;
@@ -36,13 +44,6 @@ public:
     virtual ~VIFmtListener() {}
     virtual void OnChange(const VideoInputFormat &fmt){};
     virtual void OnChange(const VideoInputFormat &fmt, int chn) {}
-    virtual void OnStop() = 0;
-};
-
-struct MMZBuffer
-{
-    uint8_t *vir_addr;
-    uint32_t phy_addr;
 };
 
 } // namespace rs

@@ -19,13 +19,13 @@ public:
 
     void UpdateVIFmt(const VideoInputFormat &fmt);
 
-    void SetVIFmtListener(VIFmtListener *listener);
+    void SetVIFmtListener(std::shared_ptr<VIFmtListener> listener);
 
 private:
     std::mutex mux_;
     VideoInputFormat now_fmt_;
     VideoInputFormat run_fmt_;
-    VIFmtListener *listener_;
+    std::shared_ptr<VIFmtListener> listener_;
     std::atomic<bool> run_;
     std::unique_ptr<std::thread> thread_;
     bool init_;

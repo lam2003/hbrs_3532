@@ -18,7 +18,7 @@ void MPPSystem::Close()
         return;
 
     int ret;
-
+    log_d("MPP stop");
     ret = HI_MPI_SYS_Exit();
     if (ret != KSuccess)
         log_e("HI_MPI_SYS_Exit failed with %#x", ret);
@@ -42,7 +42,7 @@ int32_t MPPSystem::Initialize()
         return KInitialized;
 
     int32_t ret;
-
+    log_d("MPP start");
     ret = HI_MPI_SYS_Exit();
     if (ret != KSuccess)
     {
@@ -197,7 +197,7 @@ int MPPSystem::ConfigMem()
     chn_vo.enModId = HI_ID_VOU;
     chn_vo.s32DevId = 0;
     chn_vo.s32ChnId = 0;
-    ret = HI_MPI_SYS_SetMemConf(&chn_vo, nullptr);
+    ret = HI_MPI_SYS_SetMemConf(&chn_vo, "ddr1");
     if (ret)
     {
         log_e("HI_MPI_SYS_SetMemConf failed with %#x", ret);
@@ -216,7 +216,7 @@ int MPPSystem::ConfigMem()
     chn_vo.enModId = HI_ID_VOU;
     chn_vo.s32DevId = 11;
     chn_vo.s32ChnId = 0;
-    ret = HI_MPI_SYS_SetMemConf(&chn_vo, nullptr);
+    ret = HI_MPI_SYS_SetMemConf(&chn_vo, "ddr1");
     if (ret)
     {
         log_e("HI_MPI_SYS_SetMemConf failed with %#x", ret);
@@ -246,29 +246,28 @@ int32_t MPPSystem::ConfigVB()
     memset(&conf, 0, sizeof(conf));
     conf.u32MaxPoolCnt = 128;
 
-    //ddr0 pciv buffer
-    conf.astCommPool[0].u32BlkSize = RS_PCIV_WINDOW_SIZE;
-    conf.astCommPool[0].u32BlkCnt = 2;
-    memset(conf.astCommPool[0].acMmzName, 0,
-           sizeof(conf.astCommPool[0].acMmzName));
-
     //ddr0 video buffer
-    conf.astCommPool[1].u32BlkSize = blk_size;
-    conf.astCommPool[1].u32BlkCnt = 16;
-    memset(conf.astCommPool[1].acMmzName, 0, sizeof(conf.astCommPool[1].acMmzName));
+    conf.astCommPool[0].u32BlkSize = blk_size;
+    conf.astCommPool[0].u32BlkCnt = 30;
+    memset(conf.astCommPool[0].acMmzName, 0, sizeof(conf.astCommPool[1].acMmzName));
     //ddr0 hist buffer
-    conf.astCommPool[2].u32BlkSize = (196 * 4);
-    conf.astCommPool[2].u32BlkCnt = 16;
-    memset(conf.astCommPool[2].acMmzName, 0, sizeof(conf.astCommPool[2].acMmzName));
+    conf.astCommPool[1].u32BlkSize = (196 * 4);
+    conf.astCommPool[1].u32BlkCnt = 30;
+    memset(conf.astCommPool[1].acMmzName, 0, sizeof(conf.astCommPool[2].acMmzName));
 
     //ddr1 video buffer
-    conf.astCommPool[3].u32BlkSize = blk_size;
-    conf.astCommPool[3].u32BlkCnt = 16;
-    strcpy(conf.astCommPool[3].acMmzName, "ddr1");
+    conf.astCommPool[2].u32BlkSize = blk_size;
+    conf.astCommPool[2].u32BlkCnt = 30;
+    strcpy(conf.astCommPool[2].acMmzName, "ddr1");
     //ddr1 hist buffer
-    conf.astCommPool[4].u32BlkSize = (196 * 4);
-    conf.astCommPool[4].u32BlkCnt = 16;
-    strcpy(conf.astCommPool[4].acMmzName, "ddr1");
+    conf.astCommPool[3].u32BlkSize = (196 * 4);
+    conf.astCommPool[3].u32BlkCnt = 30;
+    strcpy(conf.astCommPool[3].acMmzName, "ddr1");
+
+    //ddr0 pciv buffer
+    conf.astCommPool[4].u32BlkSize = RS_PCIV_WINDOW_SIZE / 2;
+    conf.astCommPool[4].u32BlkCnt = 1;
+    memset(conf.astCommPool[4].acMmzName, 0, sizeof(conf.astCommPool[4].acMmzName));
 
     ret = HI_MPI_VB_SetConf(&conf);
     if (ret != KSuccess)

@@ -15,6 +15,17 @@ struct Params
     int width;
     int height;
     bool interlaced;
+
+    bool operator!=(const Params &a)
+    {
+        if (dev != a.dev ||
+            chn != a.chn ||
+            width != a.width ||
+            height != a.height ||
+            interlaced != a.interlaced)
+            return true;
+        return false;
+    }
 };
 
 } // namespace vi
@@ -51,18 +62,23 @@ class VideoOutput;
 class VIHelper : public VIFmtListener
 {
 public:
-    explicit VIHelper(int dev, int chn, VideoOutput *vo);
+    explicit VIHelper(int dev, int chn);
 
     virtual ~VIHelper();
 
-    void OnChange(const VideoInputFormat &fmt) override;
+    void SetVideoOutput(std::shared_ptr<VideoOutput> vo);
 
-    void OnStop() override;
+    void OnChange(const VideoInputFormat &fmt, int chn) override;
+
+    void Start(int width, int height, bool interlaced);
+
+    void Stop();
 
 private:
+    std::mutex mux_;
     VideoInput vi_;
     int dev_;
     int chn_;
-    VideoOutput *vo_;
+    std::shared_ptr<VideoOutput> vo_;
 };
 } // namespace rs

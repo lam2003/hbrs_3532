@@ -1,16 +1,15 @@
 //self
 #include "system/venc.h"
 #include "common/err_code.h"
+#include "common/buffer.h"
 
 namespace rs
 {
 using namespace venc;
 
-const int VideoEncode::PacketBufferSize = 64 * 1024;
-
-VideoEncode::VideoEncode() : thread_(nullptr),
+VideoEncode::VideoEncode() : sink_(nullptr),
+                             thread_(nullptr),
                              run_(false),
-                             video_sink_(nullptr),
                              init_(false)
 {
 }
@@ -27,6 +26,16 @@ int32_t VideoEncode::Initialize(const Params &params)
 
     int ret;
 
+    log_d("VENC start,grp:%d,chn:%d,width:%d,height:%d,src_frame_rate:%d,dst_frame_rate:%d,profile:%d,bitrate:%d,mode:%d",
+          params.grp,
+          params.chn,
+          params.width,
+          params.height,
+          params.src_frame_rate,
+          params.dst_frame_rate,
+          params.profile,
+          params.bitrate,
+          params.mode);
     params_ = params;
 
     VENC_ATTR_H264_S h264_attr;
@@ -36,7 +45,7 @@ int32_t VideoEncode::Initialize(const Params &params)
     h264_attr.u32MaxPicHeight = params_.height;
     h264_attr.u32PicWidth = params_.width;
     h264_attr.u32PicHeight = params_.height;
-    h264_attr.u32BufSize = params_.width * params_.height * 1.5;
+    h264_attr.u32BufSize = params_.width * params_.height * 2;
     h264_attr.u32Profile = params_.profile;
     h264_attr.bByFrame = HI_FALSE;
     h264_attr.bField = HI_FALSE;
@@ -55,10 +64,10 @@ int32_t VideoEncode::Initialize(const Params &params)
     {
         VENC_ATTR_H264_CBR_S cbr_attr;
         memset(&cbr_attr, 0, sizeof(cbr_attr));
-        cbr_attr.u32Gop = params_.frame_rate;
+        cbr_attr.u32Gop = params_.dst_frame_rate;
         cbr_attr.u32StatTime = 1;
-        cbr_attr.u32ViFrmRate = params_.frame_rate;
-        cbr_attr.fr32TargetFrmRate = params_.frame_rate;
+        cbr_attr.u32ViFrmRate = params_.src_frame_rate;
+        cbr_attr.fr32TargetFrmRate = params_.dst_frame_rate;
         cbr_attr.u32BitRate = params_.bitrate;
         cbr_attr.u32FluctuateLevel = 0;
         chn_attr.stRcAttr.enRcMode = VENC_RC_MODE_H264CBR;
@@ -70,10 +79,10 @@ int32_t VideoEncode::Initialize(const Params &params)
     {
         VENC_ATTR_H264_VBR_S vbr_attr;
         memset(&vbr_attr, 0, sizeof(vbr_attr));
-        vbr_attr.u32Gop = params_.frame_rate;
+        vbr_attr.u32Gop = params_.dst_frame_rate;
         vbr_attr.u32StatTime = 1;
-        vbr_attr.u32ViFrmRate = params_.frame_rate;
-        vbr_attr.fr32TargetFrmRate = params_.frame_rate;
+        vbr_attr.u32ViFrmRate = params_.src_frame_rate;
+        vbr_attr.fr32TargetFrmRate = params_.dst_frame_rate;
         vbr_attr.u32MinQp = 24;
         vbr_attr.u32MaxQp = 32;
         vbr_attr.u32MaxBitRate = params_.bitrate;
@@ -111,6 +120,11 @@ int32_t VideoEncode::Initialize(const Params &params)
     thread_ = std::unique_ptr<std::thread>(new std::thread([this]() {
         int32_t ret;
 
+        MMZBuffer mmz_buffer(2 * 1024 * 1024);
+        MMZBuffer packet_mmz_buffer(128 * 1024);
+
+        uint8_t *packet_buf = packet_mmz_buffer.vir_addr;
+
         ret = HI_MPI_VENC_StartRecvPic(params_.chn);
         if (ret != KSuccess)
         {
@@ -128,14 +142,6 @@ int32_t VideoEncode::Initialize(const Params &params)
         fd_set fds;
         timeval tv;
 
-        void *packet_buf = malloc(PacketBufferSize);
-        uint32_t packet_buf_size = PacketBufferSize;
-        if (!packet_buf)
-        {
-            log_e("malloc packet buffer failed");
-            return;
-        }
-
         VENC_STREAM_S stream;
         VENC_CHN_STAT_S chn_stat;
 
@@ -145,7 +151,7 @@ int32_t VideoEncode::Initialize(const Params &params)
             FD_SET(fd, &fds);
 
             tv.tv_sec = 0;
-            tv.tv_usec = 500000; //500ms
+            tv.tv_usec = 100000; //100ms
 
             ret = select(fd + 1, &fds, NULL, NULL, &tv);
             if (ret <= 0)
@@ -166,17 +172,6 @@ int32_t VideoEncode::Initialize(const Params &params)
                 return;
             }
 
-            if (sizeof(VENC_PACK_S) * chn_stat.u32CurPacks > packet_buf_size)
-            {
-                free(packet_buf);
-                packet_buf = malloc(sizeof(VENC_PACK_S) * chn_stat.u32CurPacks);
-                if (!packet_buf)
-                {
-                    log_e("malloc packet buffer failed");
-                    return;
-                }
-                packet_buf_size = sizeof(VENC_PACK_S) * chn_stat.u32CurPacks;
-            }
             stream.pstPack = reinterpret_cast<VENC_PACK_S *>(packet_buf);
             stream.u32PackCount = chn_stat.u32CurPacks;
 
@@ -187,12 +182,9 @@ int32_t VideoEncode::Initialize(const Params &params)
                 return;
             }
             {
-                std::unique_lock<std::mutex> lock(video_sink_mux_);
-                if (video_sink_ != nullptr)
-                {
-                    for (uint32_t i = 0; i < stream.u32PackCount; i++)
-                        video_sink_->OnFrame(stream, params_.chn);
-                }
+                std::unique_lock<std::mutex> lock(sink_mux_);
+                if (sink_ != nullptr)
+                    sink_->OnFrame(stream);
             }
 
             ret = HI_MPI_VENC_ReleaseStream(params_.chn, &stream);
@@ -202,7 +194,6 @@ int32_t VideoEncode::Initialize(const Params &params)
                 return;
             }
         }
-        free(packet_buf);
 
         ret = HI_MPI_VENC_StopRecvPic(params_.chn);
         if (ret != KSuccess)
@@ -222,6 +213,8 @@ void VideoEncode::Close()
         return;
     int ret;
 
+    log_d("VENC stop,grp:%d,chn:%d", params_.grp, params_.chn);
+
     run_ = false;
     thread_->join();
     thread_.reset();
@@ -237,14 +230,14 @@ void VideoEncode::Close()
     if (ret != KSuccess)
         log_e("HI_MPI_VENC_DestroyGroup failed with %#x", ret);
 
-    video_sink_ = nullptr;
+    sink_ = nullptr;
     init_ = false;
 }
 
-void VideoEncode::SetVideoSink(VideoSink<VENC_STREAM_S> *video_sink)
+void VideoEncode::SetVideoSink(std::shared_ptr<VideoSink<VENC_STREAM_S>> sink)
 {
-    std::unique_lock<std::mutex> lock(video_sink_mux_);
-    video_sink_ = video_sink;
+    std::unique_lock<std::mutex> lock(sink_mux_);
+    sink_ = sink;
 }
 
 } // namespace rs

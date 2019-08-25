@@ -8,12 +8,12 @@ namespace rs
 
 using namespace pciv;
 
-static int Recv(Context *ctx, int remote_id, int port, uint8_t *tmp_buf, int32_t buf_len, Buffer<allocator_1k> &msg_buf, const std::atomic<bool> &run, Msg &msg)
+static int Recv(std::shared_ptr<PCIVComm> pciv_comm, int remote_id, int port, uint8_t *tmp_buf, int32_t buf_len, Buffer<allocator_1k> &msg_buf, const std::atomic<bool> &run, Msg &msg)
 {
     int ret;
     do
     {
-        ret = ctx->Recv(remote_id, port, tmp_buf, buf_len, 500000); //500ms
+        ret = pciv_comm->Recv(remote_id, port, tmp_buf, buf_len, 500000); //500ms
         if (ret > 0)
         {
             if (!msg_buf.Append(tmp_buf, ret))
@@ -42,7 +42,7 @@ PCIVTrans::~PCIVTrans()
 PCIVTrans::PCIVTrans() : run_(false),
                          trans_thread_(nullptr),
                          recv_msg_thread_(nullptr),
-                         ctx_(nullptr),
+                         pciv_comm_(nullptr),
                          init_(false)
 {
 }
@@ -53,13 +53,13 @@ PCIVTrans *PCIVTrans::Instance()
     return instance;
 }
 
-int32_t PCIVTrans::Initialize(Context *ctx, const MemoryInfo &mem_info)
+int32_t PCIVTrans::Initialize(std::shared_ptr<PCIVComm> pciv_comm, const MemoryInfo &mem_info)
 {
     if (init_)
         return KInitialized;
 
     mem_info_ = mem_info;
-    ctx_ = ctx;
+    pciv_comm_ = pciv_comm;
 
     memset(&pos_info_, 0, sizeof(pos_info_));
     memset(&buf_, 0, sizeof(buf_));
@@ -95,7 +95,7 @@ int32_t PCIVTrans::Initialize(Context *ctx, const MemoryInfo &mem_info)
             std::unique_lock<std::mutex> lock(mux_);
             if (buf_.len > 0)
             {
-                ret = TransportData(ctx_, pos_info_, buf_, mem_info_);
+                ret = TransportData(pciv_comm_, pos_info_, buf_, mem_info_);
                 if (ret != KSuccess)
                     return;
             }
@@ -109,7 +109,7 @@ int32_t PCIVTrans::Initialize(Context *ctx, const MemoryInfo &mem_info)
         Buffer<allocator_1k> msg_buf;
         while (run_)
         {
-            ret = Recv(ctx_, RS_PCIV_MASTER_ID, RS_PCIV_TRANS_WRITE_PORT, tmp_buf, sizeof(tmp_buf), msg_buf, run_, msg);
+            ret = Recv(pciv_comm_, RS_PCIV_MASTER_ID, RS_PCIV_TRANS_WRITE_PORT, tmp_buf, sizeof(tmp_buf), msg_buf, run_, msg);
             if (ret != KSuccess)
                 return;
 
@@ -152,7 +152,7 @@ void PCIVTrans::Close()
     HI_MPI_SYS_Munmap(buf_.vir_addr, RS_PCIV_WINDOW_SIZE / 2);
     HI_MPI_VB_ReleaseBlock(buf_.blk);
 
-    ctx_ = nullptr;
+    pciv_comm_ = nullptr;
 
     init_ = false;
 }
@@ -174,7 +174,7 @@ int32_t PCIVTrans::QueryWritePos(const PosInfo &pos_info, int len)
     return -1;
 }
 
-int32_t PCIVTrans::TransportData(Context *ctx, PosInfo &pos_info, PCIVBuffer &buf, const MemoryInfo &mem_info)
+int32_t PCIVTrans::TransportData(std::shared_ptr<PCIVComm> pciv_comm, PosInfo &pos_info, PCIVBuffer &buf, const MemoryInfo &mem_info)
 {
     int32_t ret;
 
@@ -216,7 +216,7 @@ int32_t PCIVTrans::TransportData(Context *ctx, PosInfo &pos_info, PCIVBuffer &bu
     msg.type = Msg::Type::WRITE_DONE;
     memcpy(msg.data, &tmp, sizeof(tmp));
 
-    ret = ctx->Send(RS_PCIV_MASTER_ID, RS_PCIV_TRANS_READ_PORT, reinterpret_cast<uint8_t *>(&msg), sizeof(msg));
+    ret = pciv_comm->Send(RS_PCIV_MASTER_ID, RS_PCIV_TRANS_READ_PORT, reinterpret_cast<uint8_t *>(&msg), sizeof(msg));
     if (ret != KSuccess)
         return ret;
 

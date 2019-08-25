@@ -103,20 +103,13 @@ void Adv7842::Close()
     thread_->join();
     thread_.reset();
     thread_ = nullptr;
-    if (listener_ != nullptr)
-        listener_->OnStop();
     listener_ = nullptr;
 
     init_ = false;
 }
 
-Adv7842 *Adv7842::Instance()
-{
-    static Adv7842 *instance = new Adv7842;
-    return instance;
-}
 
-void Adv7842::SetVIFmtListener(VIFmtListener *listener)
+void Adv7842::SetVIFmtListener(std::shared_ptr<VIFmtListener> listener)
 {
     std::unique_lock<std::mutex> lock(mux_);
     listener_ = listener;

@@ -30,12 +30,12 @@ static void SignalHandler(int signo)
 	}
 }
 
-static int Recv(pciv::Context *ctx, int remote_id, int port, uint8_t *tmp_buf, int32_t buf_len, Buffer<allocator_1k> &msg_buf, bool &run, pciv::Msg &msg)
+static int Recv(std::shared_ptr<PCIVComm> pciv_comm, int remote_id, int port, uint8_t *tmp_buf, int32_t buf_len, Buffer<allocator_1k> &msg_buf, bool &run, pciv::Msg &msg)
 {
 	int ret;
 	do
 	{
-		ret = ctx->Recv(remote_id, port, tmp_buf, buf_len, 500000); //500ms
+		ret = pciv_comm->Recv(remote_id, port, tmp_buf, buf_len, 500000); //500ms
 		if (ret > 0)
 		{
 			if (!msg_buf.Append(tmp_buf, ret))
@@ -60,121 +60,90 @@ static int Recv(pciv::Context *ctx, int remote_id, int port, uint8_t *tmp_buf, i
 
 int32_t main(int32_t argc, char **argv)
 {
-	int ret;
-
 	ConfigLogger();
 
 	signal(SIGINT, SignalHandler);
 
-	ret = MPPSystem::Instance()->Initialize();
-	CHECK_ERROR(ret);
+	MPPSystem::Instance()->Initialize();
+
+	std::shared_ptr<PCIVComm> pciv_comm = std::make_shared<PCIVComm>();
+	std::shared_ptr<PCIVTrans> pciv_trans = std::make_shared<PCIVTrans>();
 
 #if CHIP_TYPE == 1
-	VideoProcess vpss_pc;
-	VideoOutput vo_pc;
-	VideoEncode venc_pc;
+	std::shared_ptr<VIHelper> vi_pc = std::make_shared<VIHelper>(4, 8);
+	std::shared_ptr<Adv7842> adv7842 = std::make_shared<Adv7842>();
+	std::shared_ptr<VideoProcess> vpss_pc = std::make_shared<VideoProcess>();
+	std::shared_ptr<VideoOutput> vo_pc = std::make_shared<VideoOutput>();
+	std::shared_ptr<VideoEncode> venc_pc = std::make_shared<VideoEncode>();
 
-	//#####################################################
-	//初始化从片1上的一路vi,vi->vpss->vir_vo
-	//#####################################################
-	ret = vpss_pc.Initialize({0});
-	CHECK_ERROR(ret);
-	ret = vo_pc.Initialize({10, 0, VO_OUTPUT_1080P25});
-	CHECK_ERROR(ret);
-	ret = vo_pc.StartChannel(0, {0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT}, 0);
-	CHECK_ERROR(ret);
-	VIHelper vi_pc(4, 8, &vo_pc);
-	ret = MPPSystem::Bind<HI_ID_VIU, HI_ID_VPSS>(0, 8, 0, 0);
-	CHECK_ERROR(ret);
-	ret = MPPSystem::Bind<HI_ID_VPSS, HI_ID_VOU>(0, 4, 10, 0);
-	CHECK_ERROR(ret);
-	//#####################################################
-	//初始化从片1上的编码器,vir_vo->venc
-	//#####################################################
-	ret = venc_pc.Initialize({0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT, RS_FRAME_RATE, 0, 20000, VENC_RC_MODE_H264CBR});
-	CHECK_ERROR(ret);
-	ret = MPPSystem::Bind<HI_ID_VOU, HI_ID_GROUP>(10, 0, 0, 0);
-	CHECK_ERROR(ret);
+	vi_pc->Start(RS_MAX_WIDTH, RS_MAX_HEIGHT, false);
+	adv7842->Initialize(MODE_HDMI);
+	vpss_pc->Initialize({0});
+	vo_pc->Initialize({10, 0, VO_OUTPUT_1080P25});
+	venc_pc->Initialize({0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT, 25, 25, 0, 20000, VENC_RC_MODE_H264CBR});
+
+	vo_pc->StartChannel(0, {0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT}, 0);
+	adv7842->SetVIFmtListener(vi_pc);
+
+	MPPSystem::Bind<HI_ID_VIU, HI_ID_VPSS>(0, 8, 0, 0);
+	MPPSystem::Bind<HI_ID_VPSS, HI_ID_VOU>(0, 4, 10, 0);
+	MPPSystem::Bind<HI_ID_VOU, HI_ID_GROUP>(10, 0, 0, 0);
+
 #else
-	Tw6874 tw6874_tea_full;
-	Tw6874 tw6874_stu_full;
-	Tw6874 tw6874_black_board;
-	VideoProcess vpss_tea_full;
-	VideoProcess vpss_stu_full;
-	VideoProcess vpss_black_board;
-	VideoOutput vo_tea_full;
-	VideoOutput vo_stu_full;
-	VideoOutput vo_black_board;
-	VideoEncode venc_tea_full;
-	VideoEncode venc_stu_full;
-	VideoEncode venc_black_board;
-	//#####################################################
-	//初始化从片3上的三路vi,vi->vpss->vir_vo
-	//#####################################################
-	ret = vpss_tea_full.Initialize({0});
-	CHECK_ERROR(ret);
-	ret = vpss_stu_full.Initialize({1});
-	CHECK_ERROR(ret);
-	ret = vpss_black_board.Initialize({2});
-	CHECK_ERROR(ret);
-	ret = vo_tea_full.Initialize({10, 0, VO_OUTPUT_1080P25});
-	CHECK_ERROR(ret);
-	ret = vo_stu_full.Initialize({11, 0, VO_OUTPUT_1080P25});
-	CHECK_ERROR(ret);
-	ret = vo_black_board.Initialize({12, 0, VO_OUTPUT_1080P25});
-	CHECK_ERROR(ret);
-	ret = vo_tea_full.StartChannel(0, {0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT}, 0);
-	CHECK_ERROR(ret);
-	ret = vo_stu_full.StartChannel(0, {0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT}, 0);
-	CHECK_ERROR(ret);
-	ret = vo_black_board.StartChannel(0, {0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT}, 0);
-	CHECK_ERROR(ret);
-	VIHelper vi_tea_full(6, 12, &vo_tea_full);
-	VIHelper vi_stu_full(4, 8, &vo_stu_full);
-	VIHelper vi_black_board(2, 4, &vo_black_board);
-	ret = MPPSystem::Bind<HI_ID_VIU, HI_ID_VPSS>(0, 12, 0, 0);
-	CHECK_ERROR(ret);
-	ret = MPPSystem::Bind<HI_ID_VIU, HI_ID_VPSS>(0, 8, 1, 0);
-	CHECK_ERROR(ret);
-	ret = MPPSystem::Bind<HI_ID_VIU, HI_ID_VPSS>(0, 4, 2, 0);
-	CHECK_ERROR(ret);
-	ret = MPPSystem::Bind<HI_ID_VPSS, HI_ID_VOU>(0, 4, 10, 0);
-	CHECK_ERROR(ret);
-	ret = MPPSystem::Bind<HI_ID_VPSS, HI_ID_VOU>(1, 4, 11, 0);
-	CHECK_ERROR(ret);
-	ret = MPPSystem::Bind<HI_ID_VPSS, HI_ID_VOU>(2, 4, 12, 0);
-	CHECK_ERROR(ret);
-	//#####################################################
-	//初始化从片3上的tw6874信号接收器
-	//#####################################################
-	ret = tw6874_tea_full.Initialize();
-	CHECK_ERROR(ret);
-	ret = tw6874_stu_full.Initialize();
-	CHECK_ERROR(ret);
-	ret = tw6874_black_board.Initialize();
-	CHECK_ERROR(ret);
-	tw6874_tea_full.SetVIFmtListener(&vi_tea_full);
-	tw6874_stu_full.SetVIFmtListener(&vi_stu_full);
-	tw6874_black_board.SetVIFmtListener(&vi_black_board);
-	//#####################################################
-	//初始化从片3上的编码器 vir_vo->venc
-	//#####################################################
-	ret = venc_tea_full.Initialize({0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT, RS_FRAME_RATE, 0, 20000, VENC_RC_MODE_H264CBR});
-	CHECK_ERROR(ret);
-	ret = venc_stu_full.Initialize({1, 1, RS_MAX_WIDTH, RS_MAX_HEIGHT, RS_FRAME_RATE, 0, 20000, VENC_RC_MODE_H264CBR});
-	CHECK_ERROR(ret);
-	ret = venc_black_board.Initialize({2, 2, RS_MAX_WIDTH, RS_MAX_HEIGHT, RS_FRAME_RATE, 0, 20000, VENC_RC_MODE_H264CBR});
-	CHECK_ERROR(ret);
-	ret = MPPSystem::Bind<HI_ID_VOU, HI_ID_GROUP>(10, 0, 0, 0);
-	CHECK_ERROR(ret);
-	ret = MPPSystem::Bind<HI_ID_VOU, HI_ID_GROUP>(11, 0, 1, 0);
-	CHECK_ERROR(ret);
-	ret = MPPSystem::Bind<HI_ID_VOU, HI_ID_GROUP>(12, 0, 2, 0);
-	CHECK_ERROR(ret);
+	std::shared_ptr<Tw6874> tw6874_tea_full = std::make_shared<Tw6874>();
+	std::shared_ptr<Tw6874> tw6874_stu_full = std::make_shared<Tw6874>();
+	std::shared_ptr<Tw6874> tw6874_black_board = std::make_shared<Tw6874>();
+	std::shared_ptr<VIHelper> vi_tea_full = std::make_shared<VIHelper>(6, 12);
+	std::shared_ptr<VIHelper> vi_stu_full = std::make_shared<VIHelper>(4, 8);
+	std::shared_ptr<VIHelper> vi_black_board = std::make_shared<VIHelper>(2, 4);
+	std::shared_ptr<VideoProcess> vpss_tea_full = std::make_shared<VideoProcess>();
+	std::shared_ptr<VideoProcess> vpss_stu_full = std::make_shared<VideoProcess>();
+	std::shared_ptr<VideoProcess> vpss_black_board = std::make_shared<VideoProcess>();
+	std::shared_ptr<VideoOutput> vo_tea_full = std::make_shared<VideoOutput>();
+	std::shared_ptr<VideoOutput> vo_stu_full = std::make_shared<VideoOutput>();
+	std::shared_ptr<VideoOutput> vo_black_board = std::make_shared<VideoOutput>();
+	std::shared_ptr<VideoEncode> venc_tea_full = std::make_shared<VideoEncode>();
+	std::shared_ptr<VideoEncode> venc_stu_full = std::make_shared<VideoEncode>();
+	std::shared_ptr<VideoEncode> venc_black_board = std::make_shared<VideoEncode>();
+
+	vi_tea_full->Start(RS_MAX_WIDTH, RS_MAX_HEIGHT, false);
+	vi_stu_full->Start(RS_MAX_WIDTH, RS_MAX_HEIGHT, false);
+	vi_black_board->Start(RS_MAX_WIDTH, RS_MAX_HEIGHT, false);
+	tw6874_tea_full->Initialize();
+	tw6874_stu_full->Initialize();
+	tw6874_black_board->Initialize();
+	vpss_tea_full->Initialize({0});
+	vpss_stu_full->Initialize({1});
+	vpss_black_board->Initialize({2});
+	vo_tea_full->Initialize({10, 0, VO_OUTPUT_1080P25});
+	vo_stu_full->Initialize({11, 0, VO_OUTPUT_1080P25});
+	vo_black_board->Initialize({12, 0, VO_OUTPUT_1080P25});
+	venc_tea_full->Initialize({0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT, 25, 25, 0, 20000, VENC_RC_MODE_H264CBR});
+	venc_stu_full->Initialize({1, 1, RS_MAX_WIDTH, RS_MAX_HEIGHT, 25, 25, 0, 20000, VENC_RC_MODE_H264CBR});
+	venc_black_board->Initialize({2, 2, RS_MAX_WIDTH, RS_MAX_HEIGHT, 25, 25, 0, 20000, VENC_RC_MODE_H264CBR});
+
+	vo_tea_full->StartChannel(0, {0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT}, 0);
+	vo_stu_full->StartChannel(0, {0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT}, 0);
+	vo_black_board->StartChannel(0, {0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT}, 0);
+	vi_tea_full->SetVideoOutput(vo_tea_full);
+	vi_stu_full->SetVideoOutput(vo_stu_full);
+	vi_black_board->SetVideoOutput(vo_black_board);
+	tw6874_tea_full->SetVIFmtListener(vi_tea_full);
+	tw6874_stu_full->SetVIFmtListener(vi_stu_full);
+	tw6874_black_board->SetVIFmtListener(vi_black_board);
+
+	MPPSystem::Bind<HI_ID_VIU, HI_ID_VPSS>(0, 12, 0, 0);
+	MPPSystem::Bind<HI_ID_VIU, HI_ID_VPSS>(0, 8, 1, 0);
+	MPPSystem::Bind<HI_ID_VIU, HI_ID_VPSS>(0, 4, 2, 0);
+	MPPSystem::Bind<HI_ID_VPSS, HI_ID_VOU>(0, 4, 10, 0);
+	MPPSystem::Bind<HI_ID_VPSS, HI_ID_VOU>(1, 4, 11, 0);
+	MPPSystem::Bind<HI_ID_VPSS, HI_ID_VOU>(2, 4, 12, 0);
+	MPPSystem::Bind<HI_ID_VOU, HI_ID_GROUP>(10, 0, 0, 0);
+	MPPSystem::Bind<HI_ID_VOU, HI_ID_GROUP>(11, 0, 1, 0);
+	MPPSystem::Bind<HI_ID_VOU, HI_ID_GROUP>(12, 0, 2, 0);
 #endif
 
-	ret = PCIVComm::Instance()->Initialize();
-	CHECK_ERROR(ret);
+	pciv_comm->Initialize();
 
 	pciv::Msg msg;
 	uint8_t tmp_buf[1024];
@@ -182,8 +151,7 @@ int32_t main(int32_t argc, char **argv)
 
 	while (g_Run)
 	{
-		ret = Recv(PCIVComm::Instance(), RS_PCIV_MASTER_ID, RS_PCIV_CMD_PORT, tmp_buf, sizeof(tmp_buf), msg_buf, g_Run, msg);
-		CHECK_ERROR(ret);
+		Recv(pciv_comm, RS_PCIV_MASTER_ID, RS_PCIV_CMD_PORT, tmp_buf, sizeof(tmp_buf), msg_buf, g_Run, msg);
 
 		if (!g_Run)
 			break;
@@ -195,38 +163,35 @@ int32_t main(int32_t argc, char **argv)
 		{
 			pciv::Adv7842Conf conf;
 			memcpy(&conf, msg.data, sizeof(conf));
-			Adv7842::Instance()->Close();
-			ret = Adv7842::Instance()->Initialize(static_cast<ADV7842_MODE>(conf.mode));
-			CHECK_ERROR(ret);
-			Adv7842::Instance()->SetVIFmtListener(&vi_pc);
+			adv7842->Close();
+			adv7842->Initialize(static_cast<ADV7842_MODE>(conf.mode));
+			adv7842->SetVIFmtListener(vi_pc);
 			break;
 		}
 		case pciv::Msg::Type::QUERY_ADV7842:
 		{
 			pciv::Adv7842Query query;
 			memset(&query, 0, sizeof(query));
-			Adv7842::Instance()->GetInputFormat(query.fmt);
+			adv7842->GetInputFormat(query.fmt);
 
 			msg.type = pciv::Msg::Type::ACK;
 			memcpy(msg.data, &query, sizeof(query));
-			ret = PCIVComm::Instance()->Send(RS_PCIV_MASTER_ID, RS_PCIV_CMD_PORT, reinterpret_cast<uint8_t *>(&msg), sizeof(msg));
-			CHECK_ERROR(ret)
+			pciv_comm->Send(RS_PCIV_MASTER_ID, RS_PCIV_CMD_PORT, reinterpret_cast<uint8_t *>(&msg), sizeof(msg));
 			break;
 		}
 		case pciv::Msg::Type::START_TRANS:
 		{
 			pciv::MemoryInfo mem_info;
 			memcpy(&mem_info, msg.data, sizeof(mem_info));
-			venc_pc.SetVideoSink(nullptr);
-			PCIVTrans::Instance()->Close();
-			ret = PCIVTrans::Instance()->Initialize(PCIVComm::Instance(), mem_info);
-			CHECK_ERROR(ret);
-			venc_pc.SetVideoSink(PCIVTrans::Instance());
+			venc_pc->SetVideoSink(nullptr);
+			pciv_trans->Close();
+			pciv_trans->Initialize(pciv_comm, mem_info);
+			venc_pc->SetVideoSink(pciv_trans);
 			break;
 		}
 		case pciv::Msg::Type::STOP_TRANS:
 		{
-			venc_pc.SetVideoSink(nullptr);
+			venc_pc->SetVideoSink(nullptr);
 			PCIVTrans::Instance()->Close();
 			break;
 		}
@@ -235,32 +200,33 @@ int32_t main(int32_t argc, char **argv)
 		{
 			pciv::Tw6874Query query;
 			memcpy(&query, msg.data, sizeof(query));
-			tw6874_tea_full.UpdateVIFmt(query.fmts[0]);
-			tw6874_stu_full.UpdateVIFmt(query.fmts[1]);
-			tw6874_black_board.UpdateVIFmt(query.fmts[2]);
+			tw6874_tea_full->UpdateVIFmt(query.fmts[0]);
+			tw6874_stu_full->UpdateVIFmt(query.fmts[1]);
+			tw6874_black_board->UpdateVIFmt(query.fmts[2]);
 			break;
 		}
 		case pciv::Msg::Type::START_TRANS:
 		{
 			pciv::MemoryInfo mem_info;
 			memcpy(&mem_info, msg.data, sizeof(mem_info));
-			venc_tea_full.SetVideoSink(nullptr);
-			venc_stu_full.SetVideoSink(nullptr);
-			venc_black_board.SetVideoSink(nullptr);
-			PCIVTrans::Instance()->Close();
-			ret = PCIVTrans::Instance()->Initialize(PCIVComm::Instance(), mem_info);
-			CHECK_ERROR(ret);
-			venc_tea_full.SetVideoSink(PCIVTrans::Instance());
-			venc_stu_full.SetVideoSink(PCIVTrans::Instance());
-			venc_black_board.SetVideoSink(PCIVTrans::Instance());
+			venc_tea_full->SetVideoSink(nullptr);
+			venc_stu_full->SetVideoSink(nullptr);
+			venc_black_board->SetVideoSink(nullptr);
+			pciv_trans->Close();
+
+			pciv_trans->Initialize(pciv_comm, mem_info);
+
+			venc_tea_full->SetVideoSink(pciv_trans);
+			venc_stu_full->SetVideoSink(pciv_trans);
+			venc_black_board->SetVideoSink(pciv_trans);
 			break;
 		}
 		case pciv::Msg::Type::STOP_TRANS:
 		{
-			venc_tea_full.SetVideoSink(nullptr);
-			venc_stu_full.SetVideoSink(nullptr);
-			venc_black_board.SetVideoSink(nullptr);
-			PCIVTrans::Instance()->Close();
+			venc_tea_full->SetVideoSink(nullptr);
+			venc_stu_full->SetVideoSink(nullptr);
+			venc_black_board->SetVideoSink(nullptr);
+			pciv_trans->Close();
 			break;
 		}
 #endif
@@ -272,39 +238,88 @@ int32_t main(int32_t argc, char **argv)
 		}
 	}
 
-	PCIVTrans::Instance()->Close();
-	PCIVComm::Instance()->Close();
 #if CHIP_TYPE == 1
 	MPPSystem::UnBind<HI_ID_VOU, HI_ID_GROUP>(10, 0, 0, 0);
-	venc_pc.Close();
-	Adv7842::Instance()->Close();
 	MPPSystem::UnBind<HI_ID_VPSS, HI_ID_VOU>(0, 4, 10, 0);
 	MPPSystem::UnBind<HI_ID_VIU, HI_ID_VPSS>(0, 8, 0, 0);
-	vo_pc.Close();
-	vpss_pc.Close();
+	venc_pc->Close();
+	vo_pc->Close();
+	vpss_pc->Close();
+	adv7842->Close();
+	vi_pc->Stop();
+	venc_pc.reset();
+	venc_pc = nullptr;
+	vo_pc.reset();
+	vo_pc = nullptr;
+	vpss_pc.reset();
+	vpss_pc = nullptr;
+	adv7842.reset();
+	adv7842 = nullptr;
+	vi_pc.reset();
+	vi_pc = nullptr;
 #else
 	MPPSystem::UnBind<HI_ID_VOU, HI_ID_GROUP>(12, 0, 2, 0);
 	MPPSystem::UnBind<HI_ID_VOU, HI_ID_GROUP>(11, 0, 1, 0);
 	MPPSystem::UnBind<HI_ID_VOU, HI_ID_GROUP>(10, 0, 0, 0);
-	venc_black_board.Close();
-	venc_stu_full.Close();
-	venc_tea_full.Close();
-	tw6874_black_board.Close();
-	tw6874_stu_full.Close();
-	tw6874_tea_full.Close();
 	MPPSystem::UnBind<HI_ID_VPSS, HI_ID_VOU>(2, 4, 12, 0);
 	MPPSystem::UnBind<HI_ID_VPSS, HI_ID_VOU>(1, 4, 11, 0);
 	MPPSystem::UnBind<HI_ID_VPSS, HI_ID_VOU>(0, 4, 10, 0);
 	MPPSystem::UnBind<HI_ID_VIU, HI_ID_VPSS>(0, 4, 2, 0);
 	MPPSystem::UnBind<HI_ID_VIU, HI_ID_VPSS>(0, 8, 1, 0);
 	MPPSystem::UnBind<HI_ID_VIU, HI_ID_VPSS>(0, 12, 0, 0);
-	vo_black_board.Close();
-	vo_stu_full.Close();
-	vo_tea_full.Close();
-	vpss_black_board.Close();
-	vpss_stu_full.Close();
-	vpss_tea_full.Close();
+	venc_black_board->Close();
+	venc_stu_full->Close();
+	venc_tea_full->Close();
+	vo_black_board->Close();
+	vo_stu_full->Close();
+	vo_tea_full->Close();
+	vpss_black_board->Close();
+	vpss_stu_full->Close();
+	vpss_tea_full->Close();
+	tw6874_black_board->Close();
+	tw6874_stu_full->Close();
+	tw6874_tea_full->Close();
+	vi_black_board->Stop();
+	vi_stu_full->Stop();
+	vi_tea_full->Stop();
+	venc_black_board.reset();
+	venc_black_board = nullptr;
+	venc_stu_full.reset();
+	venc_stu_full = nullptr;
+	venc_tea_full.reset();
+	venc_tea_full = nullptr;
+	vo_black_board.reset();
+	vo_black_board = nullptr;
+	vo_stu_full.reset();
+	vo_stu_full = nullptr;
+	vo_tea_full.reset();
+	vo_tea_full = nullptr;
+	vpss_black_board.reset();
+	vpss_black_board = nullptr;
+	vpss_stu_full.reset();
+	vpss_stu_full = nullptr;
+	vpss_tea_full.reset();
+	vpss_tea_full = nullptr;
+	vi_black_board.reset();
+	vi_black_board = nullptr;
+	vi_stu_full.reset();
+	vi_stu_full = nullptr;
+	vi_tea_full.reset();
+	vi_tea_full = nullptr;
+	tw6874_black_board.reset();
+	tw6874_black_board = nullptr;
+	tw6874_stu_full.reset();
+	tw6874_stu_full = nullptr;
+	tw6874_tea_full.reset();
+	tw6874_tea_full = nullptr;
 #endif
+	pciv_trans->Close();
+	pciv_comm->Close();
+	pciv_trans.reset();
+	pciv_trans = nullptr;
+	pciv_comm.reset();
+	pciv_comm = nullptr;
+
 	MPPSystem::Instance()->Close();
 	return KSuccess;
 }

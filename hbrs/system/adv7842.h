@@ -12,7 +12,7 @@ class Adv7842
 public:
     virtual ~Adv7842();
 
-    static Adv7842 *Instance();
+    explicit Adv7842();
 
     int Initialize(ADV7842_CMODE_E mode);
 
@@ -20,17 +20,16 @@ public:
 
     void GetInputFormat(VideoInputFormat &fmt);
 
-    void SetVIFmtListener(VIFmtListener *listener);
+    void SetVIFmtListener(std::shared_ptr<VIFmtListener> listener);
 
 protected:
-    explicit Adv7842();
 
 private:
     std::mutex mux_;
     VideoInputFormat fmt_;
     std::unique_ptr<std::thread> thread_;
     std::atomic<bool> run_;
-    VIFmtListener *listener_;
+    std::shared_ptr<VIFmtListener> listener_;
     bool init_;
 };
 } // namespace rs

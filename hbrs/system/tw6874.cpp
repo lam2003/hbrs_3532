@@ -54,9 +54,6 @@ void Tw6874::Close()
     thread_->join();
     thread_.reset();
     thread_ = nullptr;
-
-    if (listener_ != nullptr)
-        listener_->OnStop();
     listener_ = nullptr;
 
     init_ = false;
@@ -68,7 +65,7 @@ void Tw6874::UpdateVIFmt(const VideoInputFormat &fmt)
     now_fmt_ = fmt;
 }
 
-void Tw6874::SetVIFmtListener(VIFmtListener *listener)
+void Tw6874::SetVIFmtListener(std::shared_ptr<VIFmtListener> listener)
 {
     std::unique_lock<std::mutex> lock(mux_);
     listener_ = listener;

@@ -61,32 +61,21 @@ struct Tw6874Query
 {
     VideoInputFormat fmts[3];
 };
-
-class Context
-{
-public:
-    virtual ~Context() {}
-
-    virtual int32_t Send(int32_t remote_id, int32_t port, uint8_t *data, int32_t len) = 0;
-
-    virtual int32_t Recv(int32_t remote_id, int32_t port, uint8_t *data, int32_t len, int timeout) = 0;
-};
 } // namespace pciv
-
-class PCIVComm : public pciv::Context
+class PCIVComm
 {
 public:
     virtual ~PCIVComm();
 
-    static PCIVComm *Instance();
+    explicit PCIVComm();
 
     int32_t Initialize();
 
     void Close();
 
-    int32_t Send(int32_t remote_id, int32_t port, uint8_t *data, int32_t len) override;
+    int32_t Send(int32_t remote_id, int32_t port, uint8_t *data, int32_t len);
 
-    int32_t Recv(int32_t remote_id, int32_t port, uint8_t *data, int32_t len, int timeout) override;
+    int32_t Recv(int32_t remote_id, int32_t port, uint8_t *data, int32_t len, int timeout);
 
 protected:
     static int32_t EnumChip();
@@ -95,8 +84,6 @@ protected:
 
     static int32_t WaitConn(int32_t remote_id);
 
-    explicit PCIVComm();
-
 private:
     std::vector<std::vector<int32_t>> remote_fds_;
     bool init_;
@@ -104,4 +91,4 @@ private:
     static const int32_t MsgPortBase;
     static const int32_t MaxPortNum;
 };
-}; // namespace rs
+} // namespace rs

@@ -37,7 +37,6 @@ public:
 
     int SetChannelFrameRate(int chn, int frame_rate);
 
-    static int SetSceneMode(VideoOutput &vo, int mode);
 
 protected:
     static int32_t StartHDMI(HI_HDMI_ID_E dev, VO_INTF_SYNC_E intf_sync);
