@@ -68,7 +68,7 @@ public:
 
     void SetVideoOutput(std::shared_ptr<VideoOutput> vo);
 
-    void OnChange(const VideoInputFormat &fmt, int chn) override;
+    void OnChange(const VideoInputFormat &fmt) override;
 
     void Start(int width, int height, bool interlaced);
 
