@@ -184,7 +184,7 @@ int32_t VideoEncode::Initialize(const Params &params)
             {
                 std::unique_lock<std::mutex> lock(sink_mux_);
                 if (sink_ != nullptr)
-                    sink_->OnFrame(stream);
+                    sink_->OnFrame(stream,params_.chn);
             }
 
             ret = HI_MPI_VENC_ReleaseStream(params_.chn, &stream);

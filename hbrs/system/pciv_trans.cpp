@@ -58,6 +58,8 @@ int32_t PCIVTrans::Initialize(std::shared_ptr<PCIVComm> pciv_comm, const MemoryI
     if (init_)
         return KInitialized;
 
+    log_d("PCIV_TRANS start");
+
     mem_info_ = mem_info;
     pciv_comm_ = pciv_comm;
 

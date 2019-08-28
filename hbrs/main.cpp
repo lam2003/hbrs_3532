@@ -13,18 +13,11 @@
 
 using namespace rs;
 
-#define CHECK_ERROR(a)                                                                  \
-	if (KSuccess != a)                                                                  \
-	{                                                                                   \
-		log_e("error:%s", make_error_code(static_cast<err_code>(a)).message().c_str()); \
-		return a;                                                                       \
-	}
-
 static bool g_Run = true;
 
 static void SignalHandler(int signo)
 {
-	if (signo == SIGINT)
+	if (signo == SIGINT || signo == SIGTERM)
 	{
 		g_Run = false;
 	}
@@ -63,6 +56,7 @@ int32_t main(int32_t argc, char **argv)
 	ConfigLogger();
 
 	signal(SIGINT, SignalHandler);
+	signal(SIGTERM, SignalHandler);
 
 	MPPSystem::Instance()->Initialize();
 
@@ -77,13 +71,17 @@ int32_t main(int32_t argc, char **argv)
 	std::shared_ptr<VideoEncode> venc_pc = std::make_shared<VideoEncode>();
 
 	vi_pc->Start(RS_MAX_WIDTH, RS_MAX_HEIGHT, false);
-	adv7842->Initialize(MODE_HDMI);
-	vpss_pc->Initialize({0});
-	vo_pc->Initialize({10, 0, VO_OUTPUT_1080P25});
-	venc_pc->Initialize({0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT, 25, 25, 0, 20000, VENC_RC_MODE_H264CBR});
 
-	vo_pc->StartChannel(0, {0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT}, 0);
+	adv7842->Initialize(MODE_HDMI);
 	adv7842->SetVIFmtListener(vi_pc);
+
+	vpss_pc->Initialize({0});
+
+	vo_pc->Initialize({10, 0, VO_OUTPUT_1080P25});
+	vo_pc->StartChannel(0, {0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT}, 0);
+	vi_pc->SetVideoOutput(vo_pc);
+
+	venc_pc->Initialize({0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT, 25, 25, 0, 20000, VENC_RC_MODE_H264CBR});
 
 	MPPSystem::Bind<HI_ID_VIU, HI_ID_VPSS>(0, 8, 0, 0);
 	MPPSystem::Bind<HI_ID_VPSS, HI_ID_VOU>(0, 4, 10, 0);
@@ -107,30 +105,43 @@ int32_t main(int32_t argc, char **argv)
 	std::shared_ptr<VideoEncode> venc_black_board = std::make_shared<VideoEncode>();
 
 	vi_tea_full->Start(RS_MAX_WIDTH, RS_MAX_HEIGHT, false);
-	vi_stu_full->Start(RS_MAX_WIDTH, RS_MAX_HEIGHT, false);
-	vi_black_board->Start(RS_MAX_WIDTH, RS_MAX_HEIGHT, false);
-	tw6874_tea_full->Initialize();
-	tw6874_stu_full->Initialize();
-	tw6874_black_board->Initialize();
-	vpss_tea_full->Initialize({0});
-	vpss_stu_full->Initialize({1});
-	vpss_black_board->Initialize({2});
-	vo_tea_full->Initialize({10, 0, VO_OUTPUT_1080P25});
-	vo_stu_full->Initialize({11, 0, VO_OUTPUT_1080P25});
-	vo_black_board->Initialize({12, 0, VO_OUTPUT_1080P25});
-	venc_tea_full->Initialize({0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT, 25, 25, 0, 20000, VENC_RC_MODE_H264CBR});
-	venc_stu_full->Initialize({1, 1, RS_MAX_WIDTH, RS_MAX_HEIGHT, 25, 25, 0, 20000, VENC_RC_MODE_H264CBR});
-	venc_black_board->Initialize({2, 2, RS_MAX_WIDTH, RS_MAX_HEIGHT, 25, 25, 0, 20000, VENC_RC_MODE_H264CBR});
 
-	vo_tea_full->StartChannel(0, {0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT}, 0);
-	vo_stu_full->StartChannel(0, {0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT}, 0);
-	vo_black_board->StartChannel(0, {0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT}, 0);
-	vi_tea_full->SetVideoOutput(vo_tea_full);
-	vi_stu_full->SetVideoOutput(vo_stu_full);
-	vi_black_board->SetVideoOutput(vo_black_board);
+	vi_stu_full->Start(RS_MAX_WIDTH, RS_MAX_HEIGHT, false);
+
+	vi_black_board->Start(RS_MAX_WIDTH, RS_MAX_HEIGHT, false);
+
+	tw6874_tea_full->Initialize();
 	tw6874_tea_full->SetVIFmtListener(vi_tea_full);
+
+	tw6874_stu_full->Initialize();
 	tw6874_stu_full->SetVIFmtListener(vi_stu_full);
+
+	tw6874_black_board->Initialize();
 	tw6874_black_board->SetVIFmtListener(vi_black_board);
+
+	vpss_tea_full->Initialize({0});
+
+	vpss_stu_full->Initialize({1});
+
+	vpss_black_board->Initialize({2});
+
+	vo_tea_full->Initialize({10, 0, VO_OUTPUT_1080P25});
+	vo_tea_full->StartChannel(0, {0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT}, 0);
+	vi_tea_full->SetVideoOutput(vo_tea_full);
+
+	vo_stu_full->Initialize({11, 0, VO_OUTPUT_1080P25});
+	vo_stu_full->StartChannel(0, {0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT}, 0);
+	vi_stu_full->SetVideoOutput(vo_stu_full);
+
+	vo_black_board->Initialize({12, 0, VO_OUTPUT_1080P25});
+	vo_black_board->StartChannel(0, {0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT}, 0);
+	vi_black_board->SetVideoOutput(vo_black_board);
+
+	venc_tea_full->Initialize({0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT, 25, 25, 0, 20000, VENC_RC_MODE_H264CBR});
+
+	venc_stu_full->Initialize({1, 1, RS_MAX_WIDTH, RS_MAX_HEIGHT, 25, 25, 0, 20000, VENC_RC_MODE_H264CBR});
+
+	venc_black_board->Initialize({2, 2, RS_MAX_WIDTH, RS_MAX_HEIGHT, 25, 25, 0, 20000, VENC_RC_MODE_H264CBR});
 
 	MPPSystem::Bind<HI_ID_VIU, HI_ID_VPSS>(0, 12, 0, 0);
 	MPPSystem::Bind<HI_ID_VIU, HI_ID_VPSS>(0, 8, 1, 0);
@@ -173,7 +184,6 @@ int32_t main(int32_t argc, char **argv)
 			pciv::Adv7842Query query;
 			memset(&query, 0, sizeof(query));
 			adv7842->GetInputFormat(query.fmt);
-
 			msg.type = pciv::Msg::Type::ACK;
 			memcpy(msg.data, &query, sizeof(query));
 			pciv_comm->Send(RS_PCIV_MASTER_ID, RS_PCIV_CMD_PORT, reinterpret_cast<uint8_t *>(&msg), sizeof(msg));
@@ -213,9 +223,7 @@ int32_t main(int32_t argc, char **argv)
 			venc_stu_full->SetVideoSink(nullptr);
 			venc_black_board->SetVideoSink(nullptr);
 			pciv_trans->Close();
-
 			pciv_trans->Initialize(pciv_comm, mem_info);
-
 			venc_tea_full->SetVideoSink(pciv_trans);
 			venc_stu_full->SetVideoSink(pciv_trans);
 			venc_black_board->SetVideoSink(pciv_trans);
@@ -238,15 +246,34 @@ int32_t main(int32_t argc, char **argv)
 		}
 	}
 
+	pciv_trans->Close();
+
+	pciv_comm->Close();
+
+	pciv_trans.reset();
+	pciv_trans = nullptr;
+
+	pciv_comm.reset();
+	pciv_comm = nullptr;
+
 #if CHIP_TYPE == 1
 	MPPSystem::UnBind<HI_ID_VOU, HI_ID_GROUP>(10, 0, 0, 0);
 	MPPSystem::UnBind<HI_ID_VPSS, HI_ID_VOU>(0, 4, 10, 0);
 	MPPSystem::UnBind<HI_ID_VIU, HI_ID_VPSS>(0, 8, 0, 0);
+
+	venc_pc->SetVideoSink(nullptr);
 	venc_pc->Close();
+
+	vi_pc->SetVideoOutput(nullptr);
 	vo_pc->Close();
+
 	vpss_pc->Close();
+
+	adv7842->SetVIFmtListener(nullptr);
 	adv7842->Close();
+
 	vi_pc->Stop();
+
 	venc_pc.reset();
 	venc_pc = nullptr;
 	vo_pc.reset();
@@ -267,59 +294,91 @@ int32_t main(int32_t argc, char **argv)
 	MPPSystem::UnBind<HI_ID_VIU, HI_ID_VPSS>(0, 4, 2, 0);
 	MPPSystem::UnBind<HI_ID_VIU, HI_ID_VPSS>(0, 8, 1, 0);
 	MPPSystem::UnBind<HI_ID_VIU, HI_ID_VPSS>(0, 12, 0, 0);
+
+	venc_black_board->SetVideoSink(nullptr);
 	venc_black_board->Close();
+
+	venc_stu_full->SetVideoSink(nullptr);
 	venc_stu_full->Close();
+
+	venc_tea_full->SetVideoSink(nullptr);
 	venc_tea_full->Close();
+
+	vi_black_board->SetVideoOutput(nullptr);
 	vo_black_board->Close();
+
+	vi_stu_full->SetVideoOutput(nullptr);
 	vo_stu_full->Close();
+
+	vi_tea_full->SetVideoOutput(nullptr);
 	vo_tea_full->Close();
+
 	vpss_black_board->Close();
+
 	vpss_stu_full->Close();
+
 	vpss_tea_full->Close();
+
+	tw6874_black_board->SetVIFmtListener(nullptr);
 	tw6874_black_board->Close();
+
+	tw6874_stu_full->SetVIFmtListener(nullptr);
 	tw6874_stu_full->Close();
+
+	tw6874_stu_full->SetVIFmtListener(nullptr);
 	tw6874_tea_full->Close();
+
 	vi_black_board->Stop();
+
 	vi_stu_full->Stop();
+
 	vi_tea_full->Stop();
+
 	venc_black_board.reset();
 	venc_black_board = nullptr;
+
 	venc_stu_full.reset();
 	venc_stu_full = nullptr;
+
 	venc_tea_full.reset();
 	venc_tea_full = nullptr;
+
 	vo_black_board.reset();
 	vo_black_board = nullptr;
+
 	vo_stu_full.reset();
 	vo_stu_full = nullptr;
+
 	vo_tea_full.reset();
 	vo_tea_full = nullptr;
+
 	vpss_black_board.reset();
 	vpss_black_board = nullptr;
+
 	vpss_stu_full.reset();
 	vpss_stu_full = nullptr;
+
 	vpss_tea_full.reset();
 	vpss_tea_full = nullptr;
+
 	vi_black_board.reset();
 	vi_black_board = nullptr;
+
 	vi_stu_full.reset();
 	vi_stu_full = nullptr;
+
 	vi_tea_full.reset();
 	vi_tea_full = nullptr;
+
 	tw6874_black_board.reset();
 	tw6874_black_board = nullptr;
+
 	tw6874_stu_full.reset();
 	tw6874_stu_full = nullptr;
+
 	tw6874_tea_full.reset();
 	tw6874_tea_full = nullptr;
 #endif
-	pciv_trans->Close();
-	pciv_comm->Close();
-	pciv_trans.reset();
-	pciv_trans = nullptr;
-	pciv_comm.reset();
-	pciv_comm = nullptr;
-
 	MPPSystem::Instance()->Close();
 	return KSuccess;
 }
