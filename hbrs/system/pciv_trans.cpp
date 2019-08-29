@@ -141,7 +141,7 @@ void PCIVTrans::Close()
 {
     if (!init_)
         return;
-
+    log_d("PCIV_TRANS stop");
     run_ = false;
     trans_thread_->join();
     trans_thread_.reset();
