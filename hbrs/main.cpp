@@ -69,9 +69,9 @@ int32_t main(int32_t argc, char **argv)
 	std::shared_ptr<VideoProcess> vpss_pc = std::make_shared<VideoProcess>();
 	std::shared_ptr<VideoOutput> vo_pc = std::make_shared<VideoOutput>();
 	std::shared_ptr<VideoEncode> venc_pc = std::make_shared<VideoEncode>();
-
-	vi_pc->Start(RS_MAX_WIDTH, RS_MAX_HEIGHT, false);
-
+#if 0 
+	vi_pc->Start(RS_MAX_WIDTH, RS_MAX_HEIGHT, false, 60);
+#endif 
 	adv7842->Initialize(MODE_HDMI);
 	adv7842->SetVIFmtListener(vi_pc);
 
@@ -104,12 +104,13 @@ int32_t main(int32_t argc, char **argv)
 	std::shared_ptr<VideoEncode> venc_stu_full = std::make_shared<VideoEncode>();
 	std::shared_ptr<VideoEncode> venc_black_board = std::make_shared<VideoEncode>();
 
-	vi_tea_full->Start(RS_MAX_WIDTH, RS_MAX_HEIGHT, false);
+#if 0
+	vi_tea_full->Start(RS_MAX_WIDTH, RS_MAX_HEIGHT, false, 30);
 
-	vi_stu_full->Start(RS_MAX_WIDTH, RS_MAX_HEIGHT, false);
+	vi_stu_full->Start(RS_MAX_WIDTH, RS_MAX_HEIGHT, false, 30);
 
-	vi_black_board->Start(RS_MAX_WIDTH, RS_MAX_HEIGHT, false);
-
+	vi_black_board->Start(RS_MAX_WIDTH, RS_MAX_HEIGHT, false, 30);
+#endif 
 	tw6874_tea_full->Initialize();
 	tw6874_tea_full->SetVIFmtListener(vi_tea_full);
 

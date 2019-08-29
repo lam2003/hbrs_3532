@@ -15,6 +15,7 @@ struct Params
     int width;
     int height;
     bool interlaced;
+    int frame_rate;
 
     bool operator!=(const Params &a)
     {
@@ -22,7 +23,8 @@ struct Params
             chn != a.chn ||
             width != a.width ||
             height != a.height ||
-            interlaced != a.interlaced)
+            interlaced != a.interlaced ||
+            frame_rate != a.frame_rate)
             return true;
         return false;
     }
@@ -70,7 +72,7 @@ public:
 
     void OnChange(const VideoInputFormat &fmt) override;
 
-    void Start(int width, int height, bool interlaced);
+    void Start(int width, int height, bool interlaced, int frame_rate);
 
     void Stop();
 
