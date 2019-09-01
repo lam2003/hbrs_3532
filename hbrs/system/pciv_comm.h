@@ -20,6 +20,8 @@ struct Msg
         CONF_ADV7842,
         QUERY_ADV7842,
         QUERY_TW6874,
+        SHUTDOWN,
+        REBOOT,
         ACK
     };
 

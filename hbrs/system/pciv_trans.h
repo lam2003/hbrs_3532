@@ -21,8 +21,6 @@ public:
 
     virtual ~PCIVTrans();
 
-    static PCIVTrans *Instance();
-
     int32_t Initialize(std::shared_ptr<PCIVComm> pciv_comm, const pciv::MemoryInfo &mem_info);
 
     void Close();

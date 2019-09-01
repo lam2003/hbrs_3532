@@ -47,11 +47,6 @@ PCIVTrans::PCIVTrans() : run_(false),
 {
 }
 
-PCIVTrans *PCIVTrans::Instance()
-{
-    static PCIVTrans *instance = new PCIVTrans;
-    return instance;
-}
 
 int32_t PCIVTrans::Initialize(std::shared_ptr<PCIVComm> pciv_comm, const MemoryInfo &mem_info)
 {

@@ -14,6 +14,7 @@
 using namespace rs;
 
 static bool g_Run = true;
+static std::string g_Opt = "";
 
 static void SignalHandler(int signo)
 {
@@ -71,7 +72,7 @@ int32_t main(int32_t argc, char **argv)
 	std::shared_ptr<VideoEncode> venc_pc = std::make_shared<VideoEncode>();
 #if 0 
 	vi_pc->Start(RS_MAX_WIDTH, RS_MAX_HEIGHT, false, 60);
-#endif 
+#endif
 	adv7842->Initialize(MODE_HDMI);
 	adv7842->SetVIFmtListener(vi_pc);
 
@@ -110,7 +111,7 @@ int32_t main(int32_t argc, char **argv)
 	vi_stu_full->Start(RS_MAX_WIDTH, RS_MAX_HEIGHT, false, 30);
 
 	vi_black_board->Start(RS_MAX_WIDTH, RS_MAX_HEIGHT, false, 30);
-#endif 
+#endif
 	tw6874_tea_full->Initialize();
 	tw6874_tea_full->SetVIFmtListener(vi_tea_full);
 
@@ -203,7 +204,7 @@ int32_t main(int32_t argc, char **argv)
 		case pciv::Msg::Type::STOP_TRANS:
 		{
 			venc_pc->SetVideoSink(nullptr);
-			PCIVTrans::Instance()->Close();
+			pciv_trans->Close();
 			break;
 		}
 #else
@@ -239,6 +240,18 @@ int32_t main(int32_t argc, char **argv)
 			break;
 		}
 #endif
+		case pciv::Msg::Type::SHUTDOWN:
+		{
+			g_Run = false;
+			g_Opt = "shutdown";
+			break;
+		}
+		case pciv::Msg::Type::REBOOT:
+		{
+			g_Run = false;
+			g_Opt = "reboot";
+			break;
+		}
 		default:
 		{
 			log_e("unknow msg type:%d", msg.type);
@@ -381,5 +394,15 @@ int32_t main(int32_t argc, char **argv)
 	tw6874_tea_full = nullptr;
 #endif
 	MPPSystem::Instance()->Close();
+
+	if (g_Opt == "shutdown")
+	{
+		system("poweroff");
+	}
+	else if (g_Opt == "reboot")
+	{
+		system("reboot");
+	}
+
 	return KSuccess;
 }
