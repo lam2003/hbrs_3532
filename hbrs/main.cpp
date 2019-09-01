@@ -54,7 +54,7 @@ static int Recv(std::shared_ptr<PCIVComm> pciv_comm, int remote_id, int port, ui
 
 int32_t main(int32_t argc, char **argv)
 {
-	ConfigLogger();
+	ConfigLogger("./3532.log", RS_VERSION);
 
 	signal(SIGINT, SignalHandler);
 	signal(SIGTERM, SignalHandler);
