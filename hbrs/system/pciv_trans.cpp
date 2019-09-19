@@ -47,7 +47,6 @@ PCIVTrans::PCIVTrans() : run_(false),
 {
 }
 
-
 int32_t PCIVTrans::Initialize(std::shared_ptr<PCIVComm> pciv_comm, const MemoryInfo &mem_info)
 {
     if (init_)
@@ -88,7 +87,6 @@ int32_t PCIVTrans::Initialize(std::shared_ptr<PCIVComm> pciv_comm, const MemoryI
         int ret;
         while (run_)
         {
-            usleep(5000); //5ms
             std::unique_lock<std::mutex> lock(mux_);
             if (buf_.len > 0)
             {
@@ -96,6 +94,7 @@ int32_t PCIVTrans::Initialize(std::shared_ptr<PCIVComm> pciv_comm, const MemoryI
                 if (ret != KSuccess)
                     return;
             }
+            cond_.wait(lock);
         }
     }));
     recv_msg_thread_ = std::unique_ptr<std::thread>(new std::thread([this]() {
@@ -138,6 +137,7 @@ void PCIVTrans::Close()
         return;
     log_d("PCIV_TRANS stop");
     run_ = false;
+    cond_.notify_all();
     trans_thread_->join();
     trans_thread_.reset();
     trans_thread_ = nullptr;
@@ -270,5 +270,6 @@ void PCIVTrans::OnFrame(const VENC_STREAM_S &st, int chn)
     }
 
     buf_.len += (align_len - len);
+    cond_.notify_one();
 }
 }; // namespace rs

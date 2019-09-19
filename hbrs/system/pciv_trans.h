@@ -36,6 +36,7 @@ private:
     pciv::MemoryInfo mem_info_;
     pciv::PosInfo pos_info_;
     PCIVBuffer buf_;
+    std::condition_variable cond_;
     std::mutex mux_;
     std::atomic<bool> run_;
     std::unique_ptr<std::thread> trans_thread_;
