@@ -88,7 +88,7 @@ int32_t PCIVTrans::Initialize(std::shared_ptr<PCIVComm> pciv_comm, const MemoryI
         int ret;
         while (run_)
         {
-            usleep(10000); //10ms
+            usleep(5000); //5ms
             std::unique_lock<std::mutex> lock(mux_);
             if (buf_.len > 0)
             {
