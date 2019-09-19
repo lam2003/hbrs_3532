@@ -38,6 +38,7 @@ private:
     PCIVBuffer buf_;
     std::condition_variable cond_;
     std::mutex mux_;
+    uint32_t cur_frame_num_;
     std::atomic<bool> run_;
     std::unique_ptr<std::thread> trans_thread_;
     std::unique_ptr<std::thread> recv_msg_thread_;

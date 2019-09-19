@@ -39,7 +39,8 @@ PCIVTrans::~PCIVTrans()
     Close();
 }
 
-PCIVTrans::PCIVTrans() : run_(false),
+PCIVTrans::PCIVTrans() : cur_frame_num_(0),
+                         run_(false),
                          trans_thread_(nullptr),
                          recv_msg_thread_(nullptr),
                          pciv_comm_(nullptr),
@@ -270,6 +271,12 @@ void PCIVTrans::OnFrame(const VENC_STREAM_S &st, int chn)
     }
 
     buf_.len += (align_len - len);
-    cond_.notify_one();
+
+    cur_frame_num_++;
+    if (cur_frame_num_ > 5 || free_len < RS_PCIV_WINDOW_SIZE / 4)
+    {
+        cur_frame_num_ = 0;
+        cond_.notify_one();
+    }
 }
 }; // namespace rs
