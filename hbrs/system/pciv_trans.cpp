@@ -95,7 +95,8 @@ int32_t PCIVTrans::Initialize(std::shared_ptr<PCIVComm> pciv_comm, const MemoryI
                 if (ret != KSuccess)
                     return;
             }
-            cond_.wait(lock);
+            if (run_)
+                cond_.wait(lock);
         }
     }));
     recv_msg_thread_ = std::unique_ptr<std::thread>(new std::thread([this]() {

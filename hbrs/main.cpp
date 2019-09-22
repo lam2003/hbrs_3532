@@ -82,8 +82,7 @@ int32_t main(int32_t argc, char **argv)
 	vo_pc->StartChannel(0, {0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT}, 0);
 	vi_pc->SetVideoOutput(vo_pc);
 
-	//性能不足,只能使用720p进行传输
-	venc_pc->Initialize({0, 0, 1280, 720, 25, 25, 0, 10000, VENC_RC_MODE_H264CBR});
+	venc_pc->Initialize({0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT, 25, 25, 2, 20000, VENC_RC_MODE_H264CBR});
 
 	MPPSystem::Bind<HI_ID_VIU, HI_ID_VPSS>(0, 8, 0, 0);
 	MPPSystem::Bind<HI_ID_VPSS, HI_ID_VOU>(0, 4, 10, 0);
@@ -140,8 +139,7 @@ int32_t main(int32_t argc, char **argv)
 	vo_black_board->StartChannel(0, {0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT}, 0);
 	vi_black_board->SetVideoOutput(vo_black_board);
 
-	//性能不足,只能使用720p进行传输
-	venc_tea_full->Initialize({0, 0, 1280, 720, 25, 25, 0, 5000, VENC_RC_MODE_H264CBR});
+	venc_tea_full->Initialize({0, 0, RS_MAX_WIDTH, RS_MAX_HEIGHT, 25, 25, 2, 10000, VENC_RC_MODE_H264CBR});
 
 	venc_stu_full->Initialize({1, 1, 1280, 720, 25, 25, 0, 5000, VENC_RC_MODE_H264CBR});
 

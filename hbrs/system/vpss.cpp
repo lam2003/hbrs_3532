@@ -35,7 +35,7 @@ int32_t VideoProcess::Initialize(const Params &params)
     attr.u32MaxW = RS_MAX_WIDTH;
     attr.bDrEn = HI_FALSE;
     attr.bDbEn = HI_FALSE;
-    attr.bIeEn = HI_FALSE;
+    attr.bIeEn = HI_TRUE;
     attr.bNrEn = HI_TRUE;
     attr.bHistEn = HI_TRUE;
     attr.enDieMode = VPSS_DIE_MODE_AUTO;
