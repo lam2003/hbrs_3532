@@ -1,5 +1,5 @@
 mkdir build 
 cd ./build/
 cmake ../
-make 
+make -j4
 cp ./hbrs/3532 /nfs/test.bin
