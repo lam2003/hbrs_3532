@@ -243,6 +243,7 @@ void PCIVTrans::OnFrame(const VENC_STREAM_S &st, int chn)
     uint32_t free_len = (RS_PCIV_WINDOW_SIZE / 2) - buf_.len;
     if (free_len < sizeof(StreamInfo) + align_len)
     {
+        cond_.notify_one();
         log_e("local buffer not enough");
         return;
     }
