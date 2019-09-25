@@ -92,7 +92,7 @@ int32_t PCIVTrans::Initialize(std::shared_ptr<PCIVComm> pciv_comm, const MemoryI
             if (buf_.len > 0)
             {
                 ret = TransportData(pciv_comm_, pos_info_, buf_, mem_info_);
-                if (ret != KSuccess)
+                if (ret != KSuccess && ret != KNotEnoughBuf)
                     return;
             }
             if (run_)

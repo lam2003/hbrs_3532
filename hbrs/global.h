@@ -62,18 +62,14 @@
 #define RS_PCIV_TRANS_READ_PORT 1                       //PCIV传输读端口
 #define RS_PCIV_TRANS_WRITE_PORT 2                      //PCIV传输写端口
 
-#if CHIP_TYPE == 3
-#define RS_VERSION "v2.1.1_stable_for_CHIP_3"
-#else 
-#define RS_VERSION "v2.1.1_stable_for_CHIP_1"
-#endif 
-
 #define RS_ASSERT(cond)     \
     while (!(cond))         \
     {                       \
         log_e("%s", #cond); \
         exit(1);            \
     }
+#define STRINGIZE(x) #x
+#define STRINGIZE_VALUE_OF(x) STRINGIZE(x)
 
 static std::map<int, int> Slave1_VencChn2VdecChn = { //从片1 VENC通道与VDEC通道映射关系
     {0, 3}};

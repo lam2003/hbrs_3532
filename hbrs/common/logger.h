@@ -16,6 +16,6 @@ static void ConfigLogger()
     elog_set_fmt(ELOG_LVL_DEBUG, ELOG_FMT_TIME | ELOG_FMT_T_INFO | ELOG_FMT_FUNC);
     elog_set_fmt(ELOG_LVL_VERBOSE, ELOG_FMT_ALL);
     elog_set_text_color_enabled(true);
-    elog_start(RS_VERSION);
+    elog_start(STRINGIZE_VALUE_OF(RS_VERSION));
 }
 } // namespace rs

@@ -18,3 +18,9 @@ dl
 rt
 m
 )
+
+if(${CHIP_TYPE} EQUAL 3)
+    install(TARGETS 3532 RUNTIME DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/../bin/3)
+else()
+    install(TARGETS 3532 RUNTIME DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/../bin/1)
+endif()
