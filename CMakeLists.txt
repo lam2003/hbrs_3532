@@ -22,11 +22,16 @@ set(HEADER "RELEASE")
 endif()
 
 string(CONCAT VER ${VER} "_")
-string(CONCAT VER ${VER} ${HEADER})
-string(CONCAT VER ${VER} "_3532_")
+string(CONCAT VER ${VER} "3532")
+string(CONCAT VER ${VER} "_")
 string(CONCAT VER ${VER} ${CHIP_TYPE})
-string(TIMESTAMP TS "_%Y-%m-%dT%H:%M:%S")
-string(CONCAT RS_VERSION ${VER} ${TS})
+string(CONCAT VER ${VER} "_")
+string(TIMESTAMP TS "%Y-%m-%dT%H:%M:%S")
+string(CONCAT VER ${VER} ${TS})
+string(CONCAT VER ${VER} "_")
+string(CONCAT RS_VERSION ${VER} ${HEADER})
+
+
 message(STATUS ${RS_VERSION})
 
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc -static-libstdc++")
