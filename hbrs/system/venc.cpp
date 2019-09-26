@@ -113,6 +113,13 @@ int32_t VideoEncode::Initialize(const Params &params)
         return KSDKError;
     }
 
+    ret = HI_MPI_VENC_SetMaxStreamCnt(params_.chn, 10);
+    if (ret != KSuccess)
+    {
+        log_e("HI_MPI_VENC_SetMaxStreamCnt failed with %#x", ret);
+        return KSDKError;
+    }
+
     init_ = true;
     return KSuccess;
 }

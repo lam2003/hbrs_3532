@@ -90,12 +90,6 @@ int32_t PCIVTrans::Initialize(std::shared_ptr<PCIVComm> pciv_comm, const MemoryI
         fd_set read_fds;
         for (int i = 0; i < 4; i++)
         {
-            ret = HI_MPI_VENC_SetMaxStreamCnt(i, 0);
-            if (ret != KSuccess)
-            {
-                log_e("HI_MPI_VENC_SetMaxStreamCnt failed");
-                return;
-            }
             fds[i] = HI_MPI_VENC_GetFd(i);
             if (fds[i] <= 0)
             {
