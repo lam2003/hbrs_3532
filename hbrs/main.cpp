@@ -195,10 +195,8 @@ int32_t main(int32_t argc, char **argv)
 		{
 			pciv::MemoryInfo mem_info;
 			memcpy(&mem_info, msg.data, sizeof(mem_info));
-			venc_pc->SetVideoSink(nullptr);
 			pciv_trans->Close();
 			pciv_trans->Initialize(pciv_comm, mem_info);
-			venc_pc->SetVideoSink(pciv_trans);
 			//回复ACK表示准备就绪
 			msg.type = pciv::Msg::Type::ACK;
 			pciv_comm->Send(RS_PCIV_MASTER_ID, RS_PCIV_CMD_PORT, reinterpret_cast<uint8_t *>(&msg), sizeof(msg));
@@ -206,7 +204,6 @@ int32_t main(int32_t argc, char **argv)
 		}
 		case pciv::Msg::Type::STOP_TRANS:
 		{
-			venc_pc->SetVideoSink(nullptr);
 			pciv_trans->Close();
 			break;
 		}
@@ -224,14 +221,8 @@ int32_t main(int32_t argc, char **argv)
 		{
 			pciv::MemoryInfo mem_info;
 			memcpy(&mem_info, msg.data, sizeof(mem_info));
-			venc_tea_full->SetVideoSink(nullptr);
-			venc_stu_full->SetVideoSink(nullptr);
-			venc_black_board->SetVideoSink(nullptr);
 			pciv_trans->Close();
 			pciv_trans->Initialize(pciv_comm, mem_info);
-			venc_tea_full->SetVideoSink(pciv_trans);
-			venc_stu_full->SetVideoSink(pciv_trans);
-			venc_black_board->SetVideoSink(pciv_trans);
 			//回复ACK表示准备就绪
 			msg.type = pciv::Msg::Type::ACK;
 			pciv_comm->Send(RS_PCIV_MASTER_ID, RS_PCIV_CMD_PORT, reinterpret_cast<uint8_t *>(&msg), sizeof(msg));
@@ -239,9 +230,6 @@ int32_t main(int32_t argc, char **argv)
 		}
 		case pciv::Msg::Type::STOP_TRANS:
 		{
-			venc_tea_full->SetVideoSink(nullptr);
-			venc_stu_full->SetVideoSink(nullptr);
-			venc_black_board->SetVideoSink(nullptr);
 			pciv_trans->Close();
 			break;
 		}
@@ -281,7 +269,6 @@ int32_t main(int32_t argc, char **argv)
 	MPPSystem::UnBind<HI_ID_VPSS, HI_ID_VOU>(0, 4, 10, 0);
 	MPPSystem::UnBind<HI_ID_VIU, HI_ID_VPSS>(0, 8, 0, 0);
 
-	venc_pc->SetVideoSink(nullptr);
 	venc_pc->Close();
 
 	vi_pc->SetVideoOutput(nullptr);
@@ -315,13 +302,10 @@ int32_t main(int32_t argc, char **argv)
 	MPPSystem::UnBind<HI_ID_VIU, HI_ID_VPSS>(0, 8, 1, 0);
 	MPPSystem::UnBind<HI_ID_VIU, HI_ID_VPSS>(0, 12, 0, 0);
 
-	venc_black_board->SetVideoSink(nullptr);
 	venc_black_board->Close();
 
-	venc_stu_full->SetVideoSink(nullptr);
 	venc_stu_full->Close();
 
-	venc_tea_full->SetVideoSink(nullptr);
 	venc_tea_full->Close();
 
 	vi_black_board->SetVideoOutput(nullptr);

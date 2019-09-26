@@ -35,12 +35,8 @@ public:
 
     void Close();
 
-    void SetVideoSink(std::shared_ptr<VideoSink<VENC_STREAM_S>> sink);
-
 private:
     venc::Params params_;
-    std::mutex sink_mux_;
-    std::shared_ptr<VideoSink<VENC_STREAM_S>> sink_;
     std::unique_ptr<std::thread> thread_;
     std::atomic<bool> run_;
     bool init_;

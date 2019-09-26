@@ -14,7 +14,7 @@ struct PCIVBuffer
     VB_BLK blk;
 };
 
-class PCIVTrans : public VideoSink<VENC_STREAM_S>
+class PCIVTrans 
 {
 public:
     explicit PCIVTrans();
@@ -25,9 +25,8 @@ public:
 
     void Close();
 
-    void OnFrame(const VENC_STREAM_S &st, int chn) override;
-
 protected:
+
     static int32_t TransportData(std::shared_ptr<PCIVComm> pciv_comm, pciv::PosInfo &pos_info, PCIVBuffer &buf, const pciv::MemoryInfo &mem_info);
 
     static int32_t QueryWritePos(const pciv::PosInfo &pos_info, int len);
@@ -36,12 +35,8 @@ private:
     pciv::MemoryInfo mem_info_;
     pciv::PosInfo pos_info_;
     PCIVBuffer buf_;
-    std::condition_variable cond_;
-    std::mutex mux_;
-    uint32_t cur_frame_num_;
-    std::atomic<bool> run_;
     std::unique_ptr<std::thread> trans_thread_;
-    std::unique_ptr<std::thread> recv_msg_thread_;
+    std::atomic<bool> run_;
     std::shared_ptr<PCIVComm> pciv_comm_;
     bool init_;
 };

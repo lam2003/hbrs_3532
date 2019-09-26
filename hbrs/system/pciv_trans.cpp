@@ -39,10 +39,8 @@ PCIVTrans::~PCIVTrans()
     Close();
 }
 
-PCIVTrans::PCIVTrans() : cur_frame_num_(0),
+PCIVTrans::PCIVTrans() : trans_thread_(nullptr),
                          run_(false),
-                         trans_thread_(nullptr),
-                         recv_msg_thread_(nullptr),
                          pciv_comm_(nullptr),
                          init_(false)
 {
@@ -86,38 +84,160 @@ int32_t PCIVTrans::Initialize(std::shared_ptr<PCIVComm> pciv_comm, const MemoryI
     run_ = true;
     trans_thread_ = std::unique_ptr<std::thread>(new std::thread([this]() {
         int ret;
-        while (run_)
+
+        int maxfd;
+        int fds[4];
+        fd_set read_fds;
+        for (int i = 0; i < 4; i++)
         {
-            std::unique_lock<std::mutex> lock(mux_);
-            if (buf_.len > 0)
+            ret = HI_MPI_VENC_SetMaxStreamCnt(i, 0);
+            if (ret != KSuccess)
             {
-                ret = TransportData(pciv_comm_, pos_info_, buf_, mem_info_);
-                if (ret != KSuccess && ret != KNotEnoughBuf)
-                    return;
+                log_e("HI_MPI_VENC_SetMaxStreamCnt failed");
+                return;
             }
-            if (run_)
-                cond_.wait(lock);
+            fds[i] = HI_MPI_VENC_GetFd(i);
+            if (fds[i] <= 0)
+            {
+                log_e("HI_MPI_VENC_GetFd failed");
+                return;
+            }
+            if (maxfd <= fds[i])
+                maxfd = fds[i];
+            HI_MPI_VENC_StartRecvPic(i);
         }
-    }));
-    recv_msg_thread_ = std::unique_ptr<std::thread>(new std::thread([this]() {
-        int ret;
+
+        VENC_STREAM_S st;
+        VENC_CHN_STAT_S stat;
+        StreamInfo st_info;
+
+        timeval val;
+        bool full = false;
+        int venc_chn = 0;
+        int venc_chn_full = 0;
 
         Msg msg;
         uint8_t tmp_buf[1024];
         Buffer<allocator_1k> msg_buf;
-        while (run_)
+
+        while (run_ || full)
         {
+            FD_ZERO(&read_fds);
+            for (int i = 0; i < 4; i++)
+                FD_SET(fds[i], &read_fds);
+
+            val.tv_sec = 1;
+            val.tv_usec = 0;
+
+            ret = select(maxfd + 1, &read_fds, NULL, NULL, &val);
+            if (ret <= 0)
+                continue;
+
+            for (int i = 0; i < 4; i++)
+            {
+                venc_chn = i;
+                if (!full)
+                {
+                    if (!FD_ISSET(fds[venc_chn], &read_fds))
+                        continue;
+
+                    memset(&st, 0, sizeof(st));
+                    ret = HI_MPI_VENC_Query(venc_chn, &stat);
+                    if (ret != KSuccess)
+                    {
+                        log_e("HI_MPI_VENC_Query failed with %#x", ret);
+                        return;
+                    }
+
+                    st.pstPack = (VENC_PACK_S *)malloc(sizeof(VENC_PACK_S) *
+                                                       stat.u32CurPacks);
+                    st.u32PackCount = stat.u32CurPacks;
+
+                    ret = HI_MPI_VENC_GetStream(venc_chn, &st, HI_IO_BLOCK);
+                    if (ret != KSuccess)
+                    {
+                        log_e("HI_MPI_VENC_Query failed with %#x", ret);
+                        return;
+                    }
+                }
+                else
+                {
+                    full = false;
+                    venc_chn = venc_chn_full;
+                }
+
+                uint32_t dma_len = 0;
+                uint32_t len = 0;
+                for (uint32_t j = 0; j < st.u32PackCount; j++)
+                {
+                    len += st.pstPack[j].u32Len[0];
+                    len += st.pstPack[j].u32Len[1];
+                }
+
+                if (0 == (len % 4))
+                {
+                    dma_len = len;
+                }
+                else
+                {
+                    dma_len = len + (4 - (len % 4));
+                }
+
+                uint32_t free_len = (RS_PCIV_WINDOW_SIZE / 2) - buf_.len;
+                if (free_len < sizeof(StreamInfo) + dma_len)
+                {
+                    full = true;
+                    venc_chn_full = venc_chn;
+                    break;
+                }
+                st_info.align_len = dma_len;
+                st_info.len = len;
+                st_info.pts = st.pstPack[0].u64PTS;
+#if CHIP_TYPE == 1
+                st_info.vdec_chn = Slave1_VencChn2VdecChn[i];
+#else
+                st_info.vdec_chn = Slave3_VencChn2VdecChn[i];
+#endif
+                memcpy(buf_.vir_addr + buf_.len, &st_info, sizeof(st_info));
+                buf_.len += sizeof(st_info);
+
+                for (uint32_t i = 0; i < st.u32PackCount; i++)
+                {
+                    memcpy(buf_.vir_addr + buf_.len,
+                           st.pstPack[i].pu8Addr[0],
+                           st.pstPack[i].u32Len[0]);
+
+                    buf_.len += st.pstPack[i].u32Len[0];
+
+                    memcpy(buf_.vir_addr + buf_.len,
+                           st.pstPack[i].pu8Addr[1],
+                           st.pstPack[i].u32Len[1]);
+                    buf_.len += st.pstPack[i].u32Len[1];
+                }
+
+                buf_.len += (dma_len - len);
+
+                ret = HI_MPI_VENC_ReleaseStream(venc_chn, &st);
+                if (ret != KSuccess)
+                {
+                    log_e("HI_MPI_VENC_ReleaseStream failed with %#x", ret);
+                    return;
+                }
+
+                free(st.pstPack);
+            }
+
+            ret = TransportData(pciv_comm_, pos_info_, buf_, mem_info_);
+            if (ret != KSuccess)
+                return;
+
             ret = Recv(pciv_comm_, RS_PCIV_MASTER_ID, RS_PCIV_TRANS_WRITE_PORT, tmp_buf, sizeof(tmp_buf), msg_buf, run_, msg);
             if (ret != KSuccess)
                 return;
 
-            if (!run_)
-                break;
-
             if (msg.type == Msg::Type::READ_DONE)
             {
                 PosInfo *tmp = reinterpret_cast<PosInfo *>(msg.data);
-                std::unique_lock<std::mutex> lock(mux_);
                 pos_info_.start_pos = tmp->end_pos;
             }
             else
@@ -126,6 +246,9 @@ int32_t PCIVTrans::Initialize(std::shared_ptr<PCIVComm> pciv_comm, const MemoryI
                 continue;
             }
         }
+
+        for (int i = 0; i < 4; i++)
+            HI_MPI_VENC_StopRecvPic(i);
     }));
 
     init_ = true;
@@ -139,14 +262,9 @@ void PCIVTrans::Close()
         return;
     log_d("PCIV_TRANS stop");
     run_ = false;
-    cond_.notify_all();
     trans_thread_->join();
     trans_thread_.reset();
     trans_thread_ = nullptr;
-
-    recv_msg_thread_->join();
-    recv_msg_thread_.reset();
-    recv_msg_thread_ = nullptr;
 
     HI_MPI_SYS_Munmap(buf_.vir_addr, RS_PCIV_WINDOW_SIZE / 2);
     HI_MPI_VB_ReleaseBlock(buf_.blk);
@@ -224,61 +342,4 @@ int32_t PCIVTrans::TransportData(std::shared_ptr<PCIVComm> pciv_comm, PosInfo &p
     return KSuccess;
 }
 
-void PCIVTrans::OnFrame(const VENC_STREAM_S &st, int chn)
-{
-    if (!init_)
-        return;
-    StreamInfo st_info;
-
-    int32_t len = 0;
-    for (uint32_t i = 0; i < st.u32PackCount; i++)
-    {
-        len += st.pstPack[i].u32Len[0];
-        len += st.pstPack[i].u32Len[1];
-    }
-
-    int32_t align_len = (len % 4 == 0 ? len : (len + (4 - len % 4)));
-
-    std::unique_lock<std::mutex> lock(mux_);
-    uint32_t free_len = (RS_PCIV_WINDOW_SIZE / 2) - buf_.len;
-    if (free_len < sizeof(StreamInfo) + align_len)
-    {
-        cond_.notify_one();
-        log_e("local buffer not enough");
-        return;
-    }
-    st_info.align_len = align_len;
-    st_info.len = len;
-    st_info.pts = st.pstPack[0].u64PTS;
-#if CHIP_TYPE == 1
-    st_info.vdec_chn = Slave1_VencChn2VdecChn[chn];
-#else
-    st_info.vdec_chn = Slave3_VencChn2VdecChn[chn];
-#endif
-    memcpy(buf_.vir_addr + buf_.len, &st_info, sizeof(st_info));
-    buf_.len += sizeof(st_info);
-
-    for (uint32_t i = 0; i < st.u32PackCount; i++)
-    {
-        memcpy(buf_.vir_addr + buf_.len,
-               st.pstPack[i].pu8Addr[0],
-               st.pstPack[i].u32Len[0]);
-
-        buf_.len += st.pstPack[i].u32Len[0];
-
-        memcpy(buf_.vir_addr + buf_.len,
-               st.pstPack[i].pu8Addr[1],
-               st.pstPack[i].u32Len[1]);
-        buf_.len += st.pstPack[i].u32Len[1];
-    }
-
-    buf_.len += (align_len - len);
-
-    cur_frame_num_++;
-    if (cur_frame_num_ > 5 || free_len < RS_PCIV_WINDOW_SIZE / 4)
-    {
-        cur_frame_num_ = 0;
-        cond_.notify_one();
-    }
-}
 }; // namespace rs
