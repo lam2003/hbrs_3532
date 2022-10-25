@@ -1,0 +1,14 @@
+CUR_PATH=/3532
+rm ${CUR_PATH}/build -r
+mkdir ${CUR_PATH}/build
+cd ${CUR_PATH}/build/
+cmake -DCHIP_TYPE=1 ../
+make -j4
+make install
+cmake -DCHIP_TYPE=3 ../
+make install
+cd ${CUR_PATH}/
+mv ./bin/1/3532 ./bin/3532_1
+mv ./bin/3/3532 ./bin/3532_3
+rm ./bin/1 -r
+rm ./bin/3 -r
